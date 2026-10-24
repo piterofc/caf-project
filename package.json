@@ -1,0 +1,17 @@
+{
+  "name": "caf-fluxer-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bot Fluxer do CAF",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9"
+  }
+}

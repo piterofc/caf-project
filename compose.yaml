@@ -1,0 +1,30 @@
+
+services:
+  caf-fluxer-bot:
+    build:
+      context: /root/caf-fluxer-bot
+      dockerfile: Dockerfile
+    container_name: caf-fluxer-bot
+    restart: unless-stopped
+    init: true
+    env_file:
+      - /root/caf-fluxer-bot/.env
+    environment:
+      NODE_ENV: production
+    stop_grace_period: 30s
+
+  caf-fluxer-bot-updater:
+    image: ghcr.io/vectode/self-updater:4
+    container_name: caf-fluxer-bot-updater
+    restart: unless-stopped
+    init: true
+    user: "0:0"
+    command:
+      - start
+      - --config
+      - /root/caf-fluxer-bot/updater.config.json
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - /root/caf-fluxer-bot:/root/caf-fluxer-bot
+      - /var/run/docker.sock:/var/run/docker.sock

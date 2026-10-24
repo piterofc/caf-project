@@ -1,0 +1,36 @@
+
+{
+  "version": 3,
+  "repo": {
+    "url": "https://github.com/piterofc/caf-fluxer-bot.git",
+    "branch": "production",
+    "token": "${GITHUB_TOKEN:-}"
+  },
+  "track": {
+    "mode": "branch"
+  },
+  "workspace": {
+    "path": "/root/caf-fluxer-bot",
+    "strategy": "in-place",
+    "install": {
+      "enabled": false
+    }
+  },
+  "service": {
+    "type": "compose",
+    "name": "caf-fluxer-bot",
+    "composeFile": "/root/caf-fluxer-bot/compose.yaml"
+  },
+  "schedule": {
+    "enabled": true,
+    "intervalSeconds": 60,
+    "jitterSeconds": 10
+  },
+  "rollback": {
+    "enabled": true
+  },
+  "logging": {
+    "level": "info",
+    "format": "text"
+  }
+}
