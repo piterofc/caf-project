@@ -1,9 +1,24 @@
+# Dependências locais
+node_modules
+
+# Controle de versão
 .git
 .github
-node_modules
+.gitignore
+
+# Variáveis de ambiente
 .env
 .env.*
 !.env.example
+
+# Banco de dados local
+src/db/*.db
+src/db/*.db-*
+
+# Logs
+*.log
 npm-debug.log*
+
+# Arquivos documentação
 README.md
 LICENSE

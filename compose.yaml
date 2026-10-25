@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
     container_name: caf-fluxer-bot
     restart: unless-stopped
+    volumes:
+      - ./src/db:/app/src/db
     init: true
     env_file:
       - /root/caf-fluxer-bot/.env
