@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import brain from './brain/brain.js';
 import kleur from 'kleur';
+import { WebServer } from './dashboard/webserver.js';
 
 export const client = brain.client;
 client.brain = brain;
@@ -37,6 +38,9 @@ async function iniciarBot() {
 
     // Logamos que o bot está online
     console.success(INDEX_PREFIX, 'Bot iniciado com sucesso!');
+
+    // Iniciamos o dashboard
+    await iniciarDashboard(client);
 }
 
 async function encerrarBot(motivo = "", exitCode = 0) {
@@ -46,6 +50,12 @@ async function encerrarBot(motivo = "", exitCode = 0) {
     await client.destroy();
     console.info(CLIENT_PREFIX, 'Bot encerrado com sucesso!');
     process.exit(exitCode);
+}
+
+async function iniciarDashboard(client) {
+    console.info(INDEX_PREFIX, 'Iniciando o dashboard...');
+    let webserver = new WebServer(client);
+    webserver.startServer();
 }
 
 // Tratamento de erros não tratados

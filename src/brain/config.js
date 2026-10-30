@@ -3,6 +3,7 @@ const mainGuildId = '1561171272639979520';
 
 const FLUXER_CLIENT_ID = process.env.FLUXER_CLIENT_ID || 'YOUR_FLUXER_CLIENT_ID';
 const FLUXER_CLIENT_SECRET = process.env.FLUXER_CLIENT_SECRET || 'YOUR_FLUXER_CLIENT_SECRET';
+const DASHBOARD_SESSION_SECRET = process.env.DASHBOARD_SESSION_SECRET || 'your_dashboard_session_secret';
 
 // Ativar bot completo sem estar cadastrado
 const bypassCadastroIds = [
@@ -41,6 +42,17 @@ const sairDeServers = {
     interval: 15 * 1000 // 15 segundos
 }
 
+// Configurações do dashboard
+const baseUrl = 'http://localhost:8080'; // Altere para o seu domínio
+const dashboardConfig = {
+    baseUrl,
+    port: 8080, // Porta do servidor web
+    clientId: FLUXER_CLIENT_ID,
+    clientSecret: FLUXER_CLIENT_SECRET,
+    callbackURL: `${baseUrl}/auth/fluxer/callback`,
+    sessionSecret: DASHBOARD_SESSION_SECRET,
+}
+
 export default {
   prefix,
   mainGuildId,
@@ -48,4 +60,5 @@ export default {
   cargosPermitidos,
   statusConfig,
   sairDeServers,
+  dashboardConfig,
 };

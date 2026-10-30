@@ -1,0 +1,225 @@
+<%- include('../partials/head', { title: `${guild.name}`, description: `Gerenciar configurações do servidor ${guild.name} no dashboard do CAF` }) %>
+<body>
+    <%- include('../partials/loading') %>
+    <%- include('../partials/header') %>
+
+    <!-- Cabeçalho do servidor (compacto) -->
+    <section class="bg-caf-hero text-white py-2">
+        <div class="container">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
+                <% if (guild.icon) { %>
+                    <img src="https://fluxerusercontent.com/icons/<%= guild.id %>/<%= guild.icon %>.webp" alt="" class="rounded-circle border border-2 border-white shadow-sm" width="44" height="44">
+                <% } else { %>
+                    <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center fs-5 fw-bold border border-2 border-white shadow-sm" style="width: 44px; height: 44px;">
+                        <%= guild.name.charAt(0) %>
+                    </div>
+                <% } %>
+                <div class="me-auto text-truncate">
+                    <h1 class="h5 mb-0 text-truncate"><%= guild.name %></h1>
+                    <small class="text-white-50">Visão geral e configurações</small>
+                </div>
+                <a href="/dashboard" class="btn btn-sm btn-outline-light rounded-pill">Trocar servidor</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- <% /*<div class="container flex-grow-1 py-4"> */ %> -->
+    <div class="container-fluid flex-grow-1 py-4 px-4">
+        <!-- <% /* <div class="row g-4"> */ %> -->
+        <div class="row g-5">
+
+            <!-- Menu lateral -->
+            <aside class="col-lg-3">
+                <%- include('../partials/guild-sidebar', { guild, guildConfig, active: 'overview' }) %>
+            </aside>
+
+            <!-- Conteúdo principal -->
+            <main class="col-lg-9">
+
+                <!-- Estatísticas (atualizadas em tempo real) -->
+                <h2 class="h5 mb-3">Status atual</h2>
+                <div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
+                    <div class="col">
+                        <div id="card-cadastro" class="card h-100 shadow-sm border-0 rounded-4">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <span class="fs-1" aria-hidden="true">📝</span>
+                                <div>
+                                    <h3 class="h6 text-secondary mb-1">Cadastro completo</h3>
+                                    <span id="stat-cadastro" class="badge rounded-pill fs-6 <%= guildConfig?.cadastroCompleto ? 'text-bg-success' : 'text-bg-secondary' %>"><%= guildConfig?.cadastroCompleto ? 'Sim' : 'Não' %></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div id="card-prefix" class="card h-100 shadow-sm border-0 rounded-4">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <span class="fs-1" aria-hidden="true">⌨️</span>
+                                <div class="text-truncate">
+                                    <h3 class="h6 text-secondary mb-1">Prefixo</h3>
+                                    <code id="stat-prefix" class="fs-5 text-primary bg-primary-subtle rounded px-2 py-1"><%= guildConfig?.prefix %></code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div id="card-bansync" class="card h-100 shadow-sm border-0 rounded-4">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <span class="fs-1" aria-hidden="true">🔨</span>
+                                <div>
+                                    <h3 class="h6 text-secondary mb-1">BanSync ativado</h3>
+                                    <span id="stat-bansync" class="badge rounded-pill fs-6 <%= guildConfig?.banSync ? 'text-bg-success' : 'text-bg-secondary' %>"><%= guildConfig?.banSync ? 'Sim' : 'Não' %></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configurações -->
+                <h2 class="h5 mb-3">Configurações</h2>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card h-100 shadow-sm border-0 rounded-4">
+                            <div class="card-body p-4">
+                                <h3 class="h5">⌨️ Prefixo</h3>
+                                <p class="text-secondary small">Símbolo usado antes dos comandos do bot neste servidor.</p>
+                                <form id="prefix-form">
+                                    <label for="new-prefix" class="form-label">Novo prefixo</label>
+                                    <div class="input-group">
+                                        <input type="text" id="new-prefix" class="form-control" placeholder="Ex.: !" value="<%= guildConfig?.prefix %>" maxlength="10" autocomplete="off" required>
+                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card h-100 shadow-sm border-0 rounded-4">
+                            <div class="card-body p-4">
+                                <h3 class="h5">🔨 BanSync</h3>
+                                <p class="text-secondary small">Sincroniza os banimentos com os demais servidores da network.</p>
+                                <form id="bansync-form">
+                                    <div class="form-check form-switch fs-5 mb-3">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="bansync-switch" <%= guildConfig?.banSync ? 'checked' : '' %>>
+                                        <label class="form-check-label" for="bansync-switch" id="bansync-label"><%= guildConfig?.banSync ? 'Ativado' : 'Desativado' %></label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Salvar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Avisos -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast-feedback" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-text"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+            </div>
+        </div>
+    </div>
+
+    <%- include('../partials/footer', { showAll: false }) %>
+
+    <script>
+        const toastEl = document.getElementById('toast-feedback');
+        const toastText = document.getElementById('toast-text');
+        // Se o Bootstrap JS não carregar, o aviso ainda aparece (sem depender dele)
+        const toast = window.bootstrap ? bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 }) : null;
+
+        function avisar(texto, ok) {
+            toastText.textContent = texto;
+            toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+            toastEl.classList.add(ok ? 'text-bg-success' : 'text-bg-danger');
+            if (toast) {
+                toast.show();
+            } else {
+                toastEl.classList.add('show');
+                setTimeout(() => toastEl.classList.remove('show'), 3500);
+            }
+        }
+
+        // Destaque rápido no card que acabou de mudar
+        function destacar(cardId) {
+            const card = document.getElementById(cardId);
+            card.classList.add('border', 'border-2', 'border-primary');
+            setTimeout(() => card.classList.remove('border', 'border-2', 'border-primary'), 1500);
+        }
+
+        function atualizarBadge(id, ativo) {
+            const el = document.getElementById(id);
+            el.textContent = ativo ? 'Sim' : 'Não';
+            el.classList.toggle('text-bg-success', ativo);
+            el.classList.toggle('text-bg-secondary', !ativo);
+        }
+
+        // Envia o formulário; se der certo, chama aoSucesso para atualizar a tela
+        function configurarFormulario({ formId, url, buildBody, okText, errorText, aoSucesso }) {
+            document.getElementById(formId).addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = e.target.querySelector('button[type="submit"]');
+                const textoOriginal = button.textContent;
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Salvando...';
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(buildBody())
+                    });
+                    const result = await response.json().catch(() => ({}));
+
+                    if (response.ok) {
+                        aoSucesso();
+                        avisar(okText, true);
+                    } else {
+                        avisar(result.error || errorText, false);
+                    }
+                } catch (err) {
+                    avisar(errorText, false);
+                } finally {
+                    button.disabled = false;
+                    button.textContent = textoOriginal;
+                }
+            });
+        }
+
+        const prefixInput = document.getElementById('new-prefix');
+        const bansyncSwitch = document.getElementById('bansync-switch');
+        const bansyncLabel = document.getElementById('bansync-label');
+
+        bansyncSwitch.addEventListener('change', () => {
+            bansyncLabel.textContent = bansyncSwitch.checked ? 'Ativado' : 'Desativado';
+        });
+
+        configurarFormulario({
+            formId: 'prefix-form',
+            url: `/api/db/servers/<%= guild.id %>/prefix`,
+            buildBody: () => ({ prefix: prefixInput.value }),
+            okText: 'Prefixo alterado com sucesso!',
+            errorText: 'Erro ao alterar prefixo.',
+            aoSucesso: () => {
+                document.getElementById('stat-prefix').textContent = prefixInput.value;
+                destacar('card-prefix');
+            }
+        });
+
+        configurarFormulario({
+            formId: 'bansync-form',
+            url: `/api/db/servers/<%= guild.id %>/bansync`,
+            buildBody: () => ({ banSync: bansyncSwitch.checked }),
+            okText: 'BanSync alterado com sucesso!',
+            errorText: 'Erro ao alterar BanSync.',
+            aoSucesso: () => {
+                atualizarBadge('stat-bansync', bansyncSwitch.checked);
+                destacar('card-bansync');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+
+<%
+const activeItem = typeof active !== 'undefined' ? active : '';
+
+const menuItems = [
+    { key: 'overview', path: '', label: '🏠 Visão geral' }
+];
+
+<div
+    id="guild-sidebar-card"
+    class="card shadow-sm border-0 rounded-4 overflow-hidden"
+>
+    <nav class="list-group list-group-flush" aria-label="Menu do servidor">
+
+        <% menuItems.forEach(item => { %>
+            <a
+                href="/dashboard/<%= guild.id %><%= item.path %>"
+                class="list-group-item list-group-item-action <%= item.extraClass || '' %> <%= item.key === activeItem ? 'active' : '' %>"
+                <%- item.key === activeItem ? 'aria-current="page"' : '' %>
+            >
+                <%= item.label %>
+            </a>
+        <% }); %>
+
+    </nav>
+
+    <div class="card-body text-center text-muted small">
+        <p class="mb-0">Mais recursos em breve!</p>
+    </div>
+</div>

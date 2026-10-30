@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Aplica o tema salvo antes de renderizar a página (evita piscar) -->
+    <script>
+        (function () {
+            let tema = null;
+            try { tema = localStorage.getItem('caf-tema'); } catch (e) {}
+            if (tema !== 'light' && tema !== 'dark') {
+                tema = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-bs-theme', tema);
+        })();
+    </script>
+    <title><%= typeof fullTitle !== 'undefined' ? fullTitle : 'CAF | Dashboard - ' + title %></title>
+    <meta name="description" content="<%= description %>">
+
+    <!-- Pré-carrega o que o loader e os títulos usam (evita texto invisível e imagens surgindo tarde) -->
+    <link rel="preload" href="/assets/font/Baloo2-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/img/aureola.png" as="image">
+    <link rel="preload" href="/assets/img/letras_aureola.png" as="image">
+
+    <link rel="icon" href="/assets/img/logo.webp" type="image/webp">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+
+    <!-- Apenas estilo (tema CAF). Toda a estrutura é Bootstrap. -->
+    <style>
+        @font-face {
+            font-family: 'Baloo2-ExtraBold';
+            src: url('/assets/font/Baloo2-ExtraBold.woff2') format('woff2'),
+                url('/assets/font/Baloo2-ExtraBold.woff') format('woff'),
+                url('/assets/font/Baloo2-ExtraBold.ttf') format('truetype');
+            font-weight: bolder;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bs-primary: #6c63ff;
+            --bs-primary-rgb: 108, 99, 255;
+            --bs-link-color: #6c63ff;
+            --bs-link-color-rgb: 108, 99, 255;
+            --bs-link-hover-color: #5a54d1;
+            --bs-link-hover-color-rgb: 90, 84, 209;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(255, 255, 255, 0.92);
+            background-image: url('/assets/img/banner-caf.webp');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-blend-mode: overlay;
+        }
+        [data-bs-theme="dark"] body { background-color: rgba(33, 37, 41, 0.92); }
+
+        h1, h2, h3, h4, h5, .navbar-brand, .btn {
+            font-family: 'Baloo2-ExtraBold', Arial, sans-serif;
+        }
+
+        .bg-caf-hero { background: linear-gradient(135deg, #6c63ff, #3f3d56); }
+        .bg-caf-dark { background-color: #3f3d56; }
+
+        .btn-primary {
+            --bs-btn-bg: #6c63ff;
+            --bs-btn-border-color: #6c63ff;
+            --bs-btn-hover-bg: #5a54d1;
+            --bs-btn-hover-border-color: #5a54d1;
+            --bs-btn-active-bg: #5a54d1;
+            --bs-btn-active-border-color: #5a54d1;
+            --bs-btn-disabled-bg: #6c63ff;
+            --bs-btn-disabled-border-color: #6c63ff;
+        }
+        .list-group {
+            --bs-list-group-active-bg: #6c63ff;
+            --bs-list-group-active-border-color: #6c63ff;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #6c63ff;
+            box-shadow: 0 0 0 .25rem rgba(108, 99, 255, .25);
+        }
+
+        .card-hover { transition: transform .3s ease-in-out; }
+        .card-hover:hover { transform: translateY(-8px); }
+
+        ::-webkit-scrollbar { width: 15px; }
+        ::-webkit-scrollbar-track { background: #3f3d56; }
+        ::-webkit-scrollbar-thumb { background: rgb(132, 125, 255); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5a54d1; }
+        ::selection { background: #5851d1; color: white; }
+    </style>
+</head>

@@ -1,0 +1,204 @@
+<%- include('partials/head', {
+    title: '',
+    fullTitle: 'Cafofo dos Anjos do Fluxer',
+    description: 'Integrando a comunidade BR do Fluxer, com servidor e bot exclusivos para a network.'
+}) %>
+<body>
+    <%- include('./partials/loading') %>
+    <%- include('partials/header') %>
+
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #6c63ff, #3f3d56);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+        }
+        .hero-section h1 {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            font-family: 'Baloo2-ExtraBold', Arial, sans-serif;
+        }
+        .hero-section p {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+        .features-section {
+            padding: 60px 0;
+        }
+        .feature-card {
+            background-color: var(--bs-body-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s ease-in-out;
+            font-family: 'Baloo2-ExtraBold', Arial, sans-serif;
+        }
+        .feature-card:hover {
+            transform: translateY(-10px);
+        }
+        .feature-card h3 {
+            margin-top: 20px;
+            margin-bottom: 15px;
+        }
+        .feature-card p {
+            color: var(--bs-secondary-color);
+        }
+        .cta-section {
+            background-color: #6c63ff;
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+        }
+        .cta-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-family: 'Baloo2-ExtraBold', Arial, sans-serif;
+        }
+        .cta-section p {
+            font-size: 1.2rem;
+        }
+        /* Segundo parágrafo customizado */
+        .cta-section p:nth-of-type(2) {
+            font-family: 'Baloo2-ExtraBold', Arial, sans-serif;
+        }
+        .cta-section .btn {
+            background-color: white;
+            color: #6c63ff;
+            font-weight: bold;
+            padding: 10px 30px;
+            border-radius: 50px;
+            transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+            font-family: 'Baloo2-ExtraBold', Arial, sans-serif;
+        }
+        .cta-section .btn:hover {
+            background-color: #5a54d1;
+            color: white;
+        }
+
+        /* Inline code block modern styling */
+        code {
+            background-color: #4b3fbd;
+            color: #ffffff;
+            padding: 0.2em 0.4em;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95em;
+        }
+
+        @keyframes flutuar {
+            0%, 100% {
+                transform: translateY(0) rotate(7deg); /* original: -7deg */
+            }
+            50% {
+                transform: translateY(-10px) rotate(3deg); /* original: -3deg */
+            }
+        }
+        .aureola-anim {
+            animation: flutuar 5s ease-in-out infinite alternate;
+            transform-origin: center;
+            will-change: transform;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .aureola-anim { animation: none; }
+        }
+    </style>
+
+    <section class="hero-section">
+        <div class="container">
+            <h1>Cafofo dos Anjos do Fluxer</h1>
+            <p>Integrando a comunidade BR do Fluxer, contando com servidor e bot exclusivos para a network!</p>
+            <a href="/dashboard" class="btn btn-light btn-lg me-2">Painel do Bot</a>
+        </div>
+    </section>
+
+    <section class="features-section">
+        <div class="container">
+            <div class="row text-center">
+                <!-- Card 1 -->
+                <div class="col-md-4 mb-4">
+                    <div class="feature-card h-100">
+                        <img src="/assets/img/letras_aureola.png" width="200px" alt="Feature 1" class="img-fluid mb-3">
+                        <!--<img src="/assets/img/aureola.png" class="aureola-anim" width="200px" alt="Feature 1" class="img-fluid mb-3">-->
+                        <h3>Comunidade Brasileira</h3>
+                        <p>Conecte-se com outros servidores BR e fortaleça a presença brasileira no Fluxer.</p>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="col-md-4 mb-4">
+                    <div class="feature-card h-100">
+                        <img src="/assets/img/letras_aureola.png" width="200px" alt="Feature 2" class="img-fluid mb-3">
+                        <!-- <img src="/assets/img/aureola.png" class="aureola-anim" width="200px" alt="Feature 2" class="img-fluid mb-3"> -->
+                        <h3>Suporte e Colaboração</h3>
+                        <p>Receba suporte especializado e colabore com outros administradores para crescer juntos.</p>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="col-md-4 mb-4">
+                    <div class="feature-card h-100">
+                        <img src="/assets/img/letras_aureola.png" width="200px" alt="Feature 3" class="img-fluid mb-3">
+                        <!-- <img src="/assets/img/aureola.png" class="aureola-anim" width="200px" alt="Feature 3" class="img-fluid mb-3"> -->
+                        <h3>Eventos e Promoções</h3>
+                        <p>Participe de eventos e promoções exclusivas para a comunidade BR do Fluxer.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>Pronto para levar seu servidor ao próximo nível?</h2>
+            <p>Junte-se à network CAF enviando uma DM para o <code>piterofc#1234</code></p>
+            <p style="margin-bottom: 30px;">Bora trazer o <span style="color: #FFD25A;">Brasil</span> pro Fluxer!</p>
+            <button href="#" id="participar_ja" class="btn btn-lg">Participar já!</button>
+        </div>
+    </section>
+
+    <%- include('partials/footer', { showAll: true }) %>
+
+    <script>
+        document.getElementById('participar_ja').addEventListener('click', function (event) {
+            event.preventDefault();
+
+            // Definir estilo de carregamento para o botão com o ícone de carregamento e texto "Redirecionando..."
+            const button = event.target;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Redirecionando...';
+            button.disabled = true;
+
+            const fluxerLink = 'fluxer://users/1474392489652519770';
+            const webLink = 'https://web.fluxer.app/users/1474392489652519770';
+
+            let appOpened = false;
+
+            // Se a página ficar oculta, provavelmente o app foi aberto.
+            function handleVisibilityChange() {
+                if (document.hidden) {
+                    appOpened = true;
+                }
+            }
+
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+
+            // Tenta abrir o app.
+            window.location.href = fluxerLink;
+
+            // Se a página continuar visível, oferece o fallback web.
+            setTimeout(function () {
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+                if (!appOpened && !document.hidden) {
+                    window.location.href = webLink;
+                }
+            }, 5000);
+
+            // Restaura o botão após 5 segundos.
+            setTimeout(function () {
+                button.innerHTML = 'Participar já!';
+                button.disabled = false;
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

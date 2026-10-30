@@ -6,6 +6,7 @@ const db = new QuickDB({ filePath: "src/db/database.db" });
 const serversTable = db.table('servers');
 const globalBansTable = db.table('globalBans');
 const globalBanHistoryTable = db.table('globalBanHistory');
+export const dashboardSessionsTable = db.table('dashboardSessions');
 
 export const Server = {
     dbFunctions: {
@@ -197,6 +198,7 @@ export const GlobalBanHistory = {
 }
 
 export default {
+    dashboardSessionsTable,
     Server,
     GlobalBan,
     GlobalBanHistory,

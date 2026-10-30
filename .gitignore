@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 # Banco de dados SQLite
 src/db/*.db
 src/db/*.db-*
+
+# Outros
+*.bak*

@@ -1,0 +1,46 @@
+<%- include('../partials/head', { title: 'Selecionar servidor', description: 'Escolha um servidor para gerenciar' }) %>
+<body>
+    <%- include('../partials/loading') %>
+    <%- include('../partials/header') %>
+
+    <section class="bg-caf-hero text-white text-center py-5">
+        <div class="container">
+            <h1 class="display-5">Selecione um servidor</h1>
+            <p class="lead mb-0">Escolha um servidor para gerenciar com o bot do CAF.</p>
+        </div>
+    </section>
+
+    <main class="container flex-grow-1 py-5">
+        <% if (guilds.length === 0) { %>
+            <div class="card shadow-sm text-center mx-auto" style="max-width: 600px;">
+                <div class="card-body p-5">
+                    <h2 class="h4">Nenhum servidor encontrado</h2>
+                    <p class="text-secondary mb-0">Você não tem permissão para gerenciar nenhum servidor com o bot do CAF.</p>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-4">
+                <% guilds.forEach(guild => { %>
+                    <div class="col">
+                        <a href="/dashboard/<%= guild.id %>" class="card card-hover h-100 shadow-sm text-center text-decoration-none">
+                            <div class="card-body p-4">
+                                <% if (guild.icon) { %>
+                                    <img src="https://fluxerusercontent.com/icons/<%= guild.id %>/<%= guild.icon %>.webp" alt="<%= guild.name %>" class="rounded-circle mb-3" width="80" height="80">
+                                <% } else { %>
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fs-2 mx-auto mb-3" style="width: 80px; height: 80px;">
+                                        <%= guild.name.charAt(0) %>
+                                    </div>
+                                <% } %>
+                                <h3 class="h5 text-body"><%= guild.name %></h3>
+                                <span class="badge rounded-pill text-bg-primary">Gerenciar servidor</span>
+                            </div>
+                        </a>
+                    </div>
+                <% }); %>
+            </div>
+        <% } %>
+    </main>
+
+    <%- include('../partials/footer', { showAll: false }) %>
+</body>
+</html>
