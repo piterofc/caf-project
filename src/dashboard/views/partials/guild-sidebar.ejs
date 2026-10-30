@@ -2,13 +2,76 @@
 <%
 const activeItem = typeof active !== 'undefined' ? active : '';
 
+const SCROLL_PROPRIO_PADRAO = true;
+
+const usarScrollProprio =
+    (typeof scrollProprio !== 'undefined')
+        ? scrollProprio
+        : SCROLL_PROPRIO_PADRAO;
+
 const menuItems = [
     { key: 'overview', path: '', label: '🏠 Visão geral' }
 ];
 
+<% if (usarScrollProprio) { %>
+<style>
+    @media (min-width: 992px) {
+
+        .sidebar-scroll {
+            position: sticky;
+            /* top: 30px; /* NÚMERO CHUTADO */
+            top: 24px;
+
+            /*
+             * A altura é calculada dinamicamente pelo JavaScript.
+             */
+            max-height: calc(100vh - 60px);
+            max-height: calc(100dvh - 60px);
+
+            display: flex;
+            flex-direction: column;
+
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /*
+         * Somente a lista de itens possui rolagem.
+         */
+        .sidebar-scroll > .list-group {
+            /*flex: 1 1 auto;*/
+            flex: 0 1 auto;
+            min-height: 0;
+
+            overflow-y: auto;
+            overscroll-behavior: contain;
+
+            scrollbar-width: thin;
+            scrollbar-color: rgba(128, 128, 128, .5) transparent;
+        }
+
+        .sidebar-scroll > .list-group::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar-scroll > .list-group::-webkit-scrollbar-thumb {
+            background: rgba(128, 128, 128, .5);
+            border-radius: 10px;
+        }
+
+        /*
+         * Rodapé sempre visível.
+         */
+        .sidebar-scroll > .card-body {
+            flex: 0 0 auto;
+        }
+    }
+</style>
+<% } %>
+
 <div
     id="guild-sidebar-card"
-    class="card shadow-sm border-0 rounded-4 overflow-hidden"
+    class="card shadow-sm border-0 rounded-4 overflow-hidden <%= usarScrollProprio ? 'sidebar-scroll' : '' %>"
 >
     <nav class="list-group list-group-flush" aria-label="Menu do servidor">
 
@@ -28,3 +91,111 @@ const menuItems = [
         <p class="mb-0">Mais recursos em breve!</p>
     </div>
 </div>
+
+<% if (usarScrollProprio) { %>
+<script>
+(function () {
+    const sidebar = document.getElementById('guild-sidebar-card');
+
+    if (!sidebar) return;
+
+    const coluna = sidebar.closest('aside');
+    const linha = sidebar.closest('.row');
+    const conteudo = linha?.querySelector('main');
+
+    if (!coluna || !linha) return;
+
+    // const MARGEM = 30; // NÚMERO CHUTADO
+    const MARGEM = 24;
+
+    function atualizarAltura() {
+        if (window.innerWidth < 992) {
+            sidebar.style.maxHeight = '';
+            return;
+        }
+
+        const alturaTela = window.innerHeight;
+        const sidebarRect = sidebar.getBoundingClientRect();
+        const linhaRect = linha.getBoundingClientRect();
+
+        /*
+         * Enquanto a sidebar ainda está em sua posição natural,
+         * respeita o espaço abaixo dela.
+         *
+         * Depois que o sticky entra em ação, utiliza os 30px
+         * definidos no topo da viewport.
+         */
+        const topoDisponivel = Math.max(
+            MARGEM,
+            sidebarRect.top
+        );
+
+        /*
+         * Espaço disponível até o final da viewport.
+         */
+        const espacoViewport =
+            alturaTela - topoDisponivel - MARGEM;
+
+        /*
+         * Espaço disponível até o final da linha do dashboard.
+         * Impede que a sidebar invada a região do footer.
+         */
+        const espacoDashboard =
+            // linhaRect.bottom - topoDisponivel - MARGEM;
+            linhaRect.bottom - topoDisponivel; // Corrigimos a margem inferior, pois o MARGEM já é considerado no topoDisponivel
+
+        /*
+         * Utiliza sempre o menor espaço disponível.
+         */
+        const alturaMaxima = Math.max(
+            0,
+            Math.min(espacoViewport, espacoDashboard)
+        );
+
+        sidebar.style.maxHeight = `${alturaMaxima}px`;
+    }
+
+    /* DESATIVADO - O MESMO TRECHO FOI REESCRITO ABAIXO PARA APLICAR LOGO QUANDO A PÁGINA É CARREGADA
+    atualizarAltura();
+
+    window.addEventListener('scroll', atualizarAltura, {
+        passive: true
+    });
+
+    window.addEventListener('resize', atualizarAltura);
+    */
+
+
+    /*
+     * Primeira atualização após o navegador calcular o layout.
+     */
+    requestAnimationFrame(() => {
+        requestAnimationFrame(atualizarAltura);
+    });
+
+    /*
+     * Atualiza quando todos os recursos da página carregarem.
+     */
+    window.addEventListener('load', atualizarAltura);
+
+    /*
+     * Atualizações durante a navegação.
+     */
+    window.addEventListener('scroll', atualizarAltura, {
+        passive: true
+    });
+
+    window.addEventListener('resize', atualizarAltura);
+
+
+    /*
+     * Atualiza também quando o conteúdo principal
+     * mudar de tamanho.
+     */
+    if ('ResizeObserver' in window && conteudo) {
+        const observer = new ResizeObserver(atualizarAltura);
+        observer.observe(conteudo);
+    }
+})();
+</script>
+<% } %>
