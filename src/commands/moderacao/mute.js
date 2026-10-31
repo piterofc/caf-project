@@ -246,7 +246,7 @@ export default {
 
     // Configurações do servidor (limite por comando e modo do mute)
     let MAX_MUTES = DEFAULT_MAX_MUTES;
-    let modo = MODES.PERGUNTAR_TEMPO;
+    let modo = MODES.PADRAO; // padrão: o comando espera duração e motivo no mesmo comando
     let exigirConfirmacao = true; // padrão: exigir confirmação do autor antes de aplicar o mute
     try {
       const server = await database.Server.get(message.guild.id);
