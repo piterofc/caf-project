@@ -1,5 +1,6 @@
 import os from 'node:os';
 import packageJson from '../../../package.json' with { type: 'json' };
+import { commitHashShort, commitDate, branchName } from '../../utils/gitInfo.js';
 
 const fluxerVersion =
   packageJson.dependencies?.['@fluxerjs/core'] ??
@@ -66,6 +67,8 @@ export default {
         `> \🖥️ Versão do Node.js: \`${process.version}\`\n` +
         `> \📦 Versão do Fluxer.js: \`${fluxerVersion}\`\n` +
         `> \🤖 Versão do Bot: \`${packageJson.version}\`\n` +
+        // Info do Git em uma única linha contento hash curto, data e branch
+        `> \🗂️ Commit atual: \`${branchName ?? 'Branch desconhecida'}\` > \`${commitHashShort ?? 'Hash desconhecido'}\` (${commitDate ? "<t:" + Math.floor(new Date(commitDate).getTime() / 1000) + ":R>" : 'Data desconhecida'})\n` +
         `> \⚙️ Versão do Sistema Operacional: \`${os.release()}\`\n` +
         `> \⚙️ Arquitetura do Sistema Operacional: \`${os.arch()}\`\n` +
         `> \💿 Memória RAM Total: \`${(os.totalmem() / 1024 ** 3).toFixed(2)} GB\`\n` +

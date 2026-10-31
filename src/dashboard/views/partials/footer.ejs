@@ -1,3 +1,6 @@
+<% if (typeof showCommit === 'undefined') {
+    showCommit = false;
+} %>
 <footer class="bg-caf-dark text-white-50 mt-auto pt-3 pb-3">
     <div class="container">
         <% if (showAll) { %>
@@ -27,6 +30,9 @@
         <% } %>
         <p class="text-center small mb-0">Feito com ❤️ por <a class="link-light link-opacity-75 link-opacity-100-hover text-decoration-none" href="https://web.fluxer.app/users/1474392489652519770" target="_blank" rel="noopener">PiterOfc</a>.</p>
         <p class="text-center small mb-0">&copy; <%= new Date().getFullYear() %> Cafofo dos Anjos do Fluxer. Todos os direitos reservados.</p>
+        <% if (showCommit) { %>
+            <p class="text-center small mb-0">Commit atual: <a class="link-light link-opacity-75 link-opacity-100-hover text-decoration-none" href="https://github.com/PiterOfc/caf-fluxer-bot/commit/<%= commit.hash %>" target="_blank" rel="noopener"><%= commit.hashShort || 'Desconhecido' %></a></p>
+        <% } %>
     </div>
 </footer>
 

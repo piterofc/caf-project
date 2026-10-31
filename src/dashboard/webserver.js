@@ -15,11 +15,13 @@ import flash from 'connect-flash';
 import myPassport from './auth/passport.js';
 import QuickDBSessionStore from '../db/QuickDBSessionStore.js';
 
+import { ensureAuthenticated, forwardAuthenticated } from './auth/authenticated.js';
+
 import dbRoute from './routes/database.js';
 import authRoute from './routes/auth.js';
 import dashboardRoute from './routes/dashboard.js';
 
-import { ensureAuthenticated, forwardAuthenticated } from './auth/authenticated.js';
+import { commitHash, commitHashShort } from '../utils/gitInfo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,6 +94,10 @@ export class WebServer {
             res.locals.success = req.flash('success');
             res.locals.error = req.flash('error');
             res.locals.user = req.user || null;
+            res.locals.commit = {
+                hash: commitHash || 'Desconhecido',
+                hashShort: commitHashShort || 'Desconhecido'
+            };
             next();
         });
 

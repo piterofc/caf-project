@@ -12,6 +12,13 @@ import emojis from './variables/emojis.json' with { type: 'json' };
 
 import { paginate } from '../utils/pagination.js';
 
+import { getCommitHash, getCommitHashShort, getCommitDate, getBranchName } from '../utils/gitInfo.js';
+// Rodar as funções para obter as informações do Git
+getCommitHash();
+getCommitHashShort();
+getCommitDate();
+getBranchName();
+
 export default {
   config,
   client,
