@@ -9,9 +9,7 @@ export default {
   async execute({ client, message, args }) {
     const { database, emojis, paginate } = client.brain;
 
-    let userId = args[0]?.replace(/[<@!>]/g, '') || message.author.id;
-
-    let user = await client.users.fetch(userId).catch(() => null);
+    let user = message.mentions[0] || await (args[0] ? await client.users.fetch(args[0]).catch(() => null) : null) || message.author;
     if (!user) {
       await message.reply(`${emojis.cross_anim} Não consegui encontrar este usuário.`);
       return;

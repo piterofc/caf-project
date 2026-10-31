@@ -5,9 +5,9 @@ export default {
   aliases: ['global-ban', 'ban-global'],
   categoria: 'network',
   descricao: 'Banimento global de usuários dos servidores da network CAF.',
-  uso: 'gban [add|rem|listar|historico] <id-do-usuario>',
+  uso: 'gban [add|rem|listar|historico] <@usuário|ID> <motivo>',
   exemplos: [
-    'gban adicionar 123456789012345678',
+    'gban adicionar @Usuario Motivo do banimento',
     'gban remover 123456789012345678',
     'gban listar',
     'gban historico 123456789012345678'
@@ -31,22 +31,22 @@ export default {
     const acao = args[0]?.toLowerCase();
 
     if (['banir', 'ban', 'adicionar', 'add'].includes(acao)) {
-      const userId = args[1];
+      const user = message.mentions[0] || (args[1] ? await client.users.fetch(args[1]).catch(() => null) : null);
       const motivo = args?.slice(2).join(' ') || 'Sem motivo fornecido';
 
-      if (!userId) {
+      if (!user.id) {
         await message.reply(`${emojis.cross_system} Use \`${prefixo}${this.uso}\`.`);
         return;
       }
 
-      const resultado1 = await database.GlobalBan.add(userId, {
+      const resultado1 = await database.GlobalBan.add(user.id, {
         banidoPor: message.author.id,
         dataBan: new Date().toISOString(),
         motivo: motivo,
       });
 
-      const resultado2 = await database.GlobalBanHistory.add(userId, {
-        id: `${userId}-${agora}`, // ID único para cada ação de banimento
+      const resultado2 = await database.GlobalBanHistory.add(user.id, {
+        id: `${user.id}-${agora}`, // ID único para cada ação de banimento
         acao: 'adicionar',
         realizadoPor: message.author.id,
         dataAcao: new Date().toISOString(),
@@ -54,25 +54,25 @@ export default {
       });
 
       if (resultado1.success && resultado2.success) {
-        await message.reply(`${emojis.check_anim} O usuário <@${userId}> foi **banido globalmente** com sucesso!`);
+        await message.reply(`${emojis.check_anim} O usuário <@${user.id}> foi **banido globalmente** com sucesso!`);
       } else {
-        await message.reply(`${emojis.neutral_anim} O usuário <@${userId}> já está banido globalmente!`);
+        await message.reply(`${emojis.neutral_anim} O usuário <@${user.id}> já está banido globalmente!`);
       }
       return;
     }
 
     if (['desbanir', 'unban', 'remover', 'remove', 'rem'].includes(acao)) {
-      const userId = args[1];
+      const user = message.mentions[0] || (args[1] ? await client.users.fetch(args[1]).catch(() => null) : null);
       const motivo = args?.slice(2).join(' ') || 'Sem motivo fornecido';
 
-      if (!userId) {
+      if (!user.id) {
         await message.reply(`Use \`${prefixo}${this.uso}\`.`);
         return;
       }
 
-      const resultado1 = await database.GlobalBan.remove(userId);
-      const resultado2 = await database.GlobalBanHistory.add(userId, {
-        id: `${userId}-${agora}`, // ID único para cada ação de banimento
+      const resultado1 = await database.GlobalBan.remove(user.id);
+      const resultado2 = await database.GlobalBanHistory.add(user.id, {
+        id: `${user.id}-${agora}`, // ID único para cada ação de banimento
         acao: 'remover',
         realizadoPor: message.author.id,
         dataAcao: new Date().toISOString(),
@@ -80,9 +80,9 @@ export default {
       });
 
       if (resultado1.success && resultado2.success) {
-        await message.reply(`${emojis.check_anim} O usuário <@${userId}> foi **desbanido globalmente** com sucesso!`);
+        await message.reply(`${emojis.check_anim} O usuário <@${user.id}> foi **desbanido globalmente** com sucesso!`);
       } else {
-        await message.reply(`${emojis.neutral_anim} O usuário <@${userId}> não está banido!`);
+        await message.reply(`${emojis.neutral_anim} O usuário <@${user.id}> não está banido!`);
       }
       return;
     }
@@ -117,17 +117,17 @@ export default {
 
     // Histórico de banimentos globais de um usuário específico
     if (['histórico', 'historico', 'history', 'hist'].includes(acao)) {
-      const userId = args[1];
+      const user = message.mentions[0] || (args[1] ? await client.users.fetch(args[1]).catch(() => null) : null);
 
-      if (!userId) {
+      if (!user.id) {
         await message.reply(`Use \`${prefixo}${this.uso}\`.`);
         return;
       }
 
-      const history = await database.GlobalBanHistory.get(userId);
+      const history = await database.GlobalBanHistory.get(user.id);
 
       if (!history || history.length === 0) {
-        await message.reply(`Não há histórico de banimentos globais para o usuário <@${userId}>.`);
+        await message.reply(`Não há histórico de banimentos globais para o usuário <@${user.id}>.`);
         return;
       }
 
@@ -135,7 +135,7 @@ export default {
         itemsPerPage: 5,
         timeout: 5 * 60000, // 5 minutos
         embed: {
-          titulo: `Histórico de Banimentos Globais - <@${userId}>`,
+          titulo: `Histórico de Banimentos Globais - <@${user.id}>`,
           cor: '#ff9900'
         }
       };
