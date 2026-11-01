@@ -7,6 +7,7 @@ import passport from 'passport';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { slowDown } from 'express-slow-down';
 import axios from 'axios';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
@@ -27,6 +28,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import { DASHBOARD_PREFIX } from '../utils/loggerPrefixes.js';
+
+function slowDownHeaders(req, res, next) {
+  const { delay, used, remaining, limit } = req.slowDown;
+
+  res.setHeader('X-Throttle-Delay', delay);
+  res.setHeader('X-Throttle-Used', used);
+  res.setHeader('X-Throttle-Remaining', remaining);
+  res.setHeader('X-Throttle-Limit', limit);
+  res.setHeader('X-Throttle-Reset', Math.ceil(req.slowDown.resetTime / 1000));
+
+  next();
+}
 
 export class WebServer {
     client;
@@ -49,15 +62,36 @@ export class WebServer {
         app.use(helmet({
             contentSecurityPolicy: false
         }));
-        app.use(cors());
+        app.use(cors({
+            // Configurações de CORS
+            allowedHeaders: ['Content-Type', 'Authorization'],
+            credentials: true,
+            exposedHeaders: [
+              'X-Throttle-Delay',
+              'X-Throttle-Used',
+              'X-Throttle-Remaining',
+              'X-Throttle-Limit',
+              'X-Throttle-Reset',
+            ]
+        }));
         app.use(express.json());
         app.use(express.urlencoded({ extended: true, limit: '5mb' }));
         app.use(cookieParser());
 
+        // Slow Down para reduzir a velocidade de requisições excessivas
+        const speedLimiter = slowDown({
+            windowMs: 60 * 1000, // 1 minuto
+            delayAfter: 10, // Começa a atrasar após 10 requisições
+            delayMs: (used) => (used - 5) * 500,
+            maxDelayMs: 3000,
+        });
+        app.use('/api', speedLimiter);
+        app.use('/api', slowDownHeaders); // Adiciona os headers de atraso
+
         // Rate Limiter na API para evitar abuso
         const limiter = rateLimit({
-            windowMs: 15 * 60 * 1000, // 15 minutos
-            max: 100, // Limite de 100 requisições por IP
+            windowMs: 60 * 1000, // 1 minuto
+            max: 30, // Limite de 30 requisições por IP
             message: 'Muitas requisições feitas a partir deste IP, por favor tente novamente mais tarde.',
         });
         app.use('/api', limiter);
@@ -67,6 +101,7 @@ export class WebServer {
 
         // Session
         app.use(session({
+            name: 'caf.session',
             secret: this.brain.config.dashboardConfig.sessionSecret,
 
             store: new QuickDBSessionStore(
@@ -75,7 +110,7 @@ export class WebServer {
 
             resave: false,
             saveUninitialized: false,
-            cookie: { 
+            cookie: {
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
