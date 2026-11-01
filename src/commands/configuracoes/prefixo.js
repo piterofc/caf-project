@@ -4,7 +4,7 @@ export default {
   categoria: 'configuracoes',
   descricao: 'Altera o prefixo deste servidor.',
   uso: 'prefixo <novo-prefixo>',
-  exemplos: ['prefixo !', 'prefixo caf.'],
+  exemplos: ['prefixo +', 'prefixo a!'],
 
   async execute({ client, message, args, prefixo }) {
     if (!message.guildId) {

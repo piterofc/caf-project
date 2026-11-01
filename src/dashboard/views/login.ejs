@@ -1,6 +1,6 @@
 <%- include('./partials/head', {
     title: 'Login',
-    description: 'Entre com a sua conta do Fluxer para acessar o painel do bot do CAF.'
+    description: 'Entre com a sua conta do Fluxer para acessar o painel da Angel.'
 }) %>
 <body>
     <%- include('./partials/loading') %>
@@ -39,7 +39,7 @@
             height: 96px;
             border-radius: 50%;
             object-fit: cover;
-            border: 4px solid #6c63ff;
+            border: 4px solid #B5174E;
             margin-bottom: 15px;
         }
         .login-card h2 {
@@ -118,8 +118,7 @@
 
     <section class="hero-section">
         <div class="container">
-            <h1>Painel do Bot</h1>
-            <p>Gerencie o bot do Cafofo dos Anjos do Fluxer.</p>
+            <h1>Central dos Anjos do Fluxer</h1>
         </div>
     </section>
 
@@ -145,9 +144,9 @@
                         <% */ %>
 
                         <% if (avatar) { %>
-                            <img src="<%= avatar %>" class="avatar" alt="Avatar de <%= user %>">
+                            <img src="<%= avatar %>" class="avatar" alt="Avatar da Angel">
                         <% } %>
-                        <h2>Bem-vindo, <%= user %>!</h2>
+                        <h2>Dashboard da Angel</h2>
                         <p>Entre com a sua conta do Fluxer para acessar o painel.</p>
 
                         <a href="/auth/fluxer" class="btn btn-lg">Entrar com o Fluxer</a>

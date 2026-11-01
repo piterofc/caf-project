@@ -106,7 +106,13 @@ export class WebServer {
         app.set('views', path.join(__dirname, 'views'));
 
         // Arquivos estáticos em ./public
-        app.use(express.static(path.join(__dirname, 'public')));
+        app.use(express.static(path.join(__dirname, 'public'),
+          {
+            maxAge: '1h',
+            etag: true,
+            lastModified: true
+          }
+        ));
 
         /* Rotas */
         // Rota de autenticação

@@ -1,4 +1,4 @@
-const prefix = 'caf.';
+const prefix = '+';
 const mainGuildId = '1561171272639979520';
 
 const FLUXER_CLIENT_ID = process.env.FLUXER_CLIENT_ID || 'YOUR_FLUXER_CLIENT_ID';

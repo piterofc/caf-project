@@ -1,2 +1,2 @@
 # caf-fluxer-bot
-Bot do Fluxer para servidores associados ao Cafofo dos Anjos do Fluxer (CAF)
+Bot do Fluxer para servidores associados à Central dos Anjos do Fluxer (CAF)
