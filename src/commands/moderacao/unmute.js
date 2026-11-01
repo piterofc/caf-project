@@ -1,5 +1,8 @@
+import { PermissionFlags } from '@fluxerjs/core';
+
 const MENTION_REGEX = /^<@!?(\d{15,21})>$/;
 const ID_REGEX = /^(\d{15,21})$/;
+const MAX_REASON_LENGTH = 512; // limite do motivo na API do Fluxer
 
 const DEFAULT_MAX_UNMUTES = 5;
 const DEFAULT_REASON = 'Sem motivo fornecido';
@@ -35,6 +38,38 @@ function getHighestRolePosition(member) {
   return [...roles.values()].reduce((max, role) => Math.max(max, role.position ?? 0), 0);
 }
 
+/**
+ * Verifica uma permissão do membro. Administrator concede todas as permissões.
+ * Usa o enum oficial PermissionFlags (strings como 'BAN_MEMBERS' não são nomes válidos no SDK).
+ */
+function hasPermission(member, flag) {
+  const permissions = member?.permissions;
+  if (!permissions) return false;
+  return permissions.has(flag) || permissions.has(PermissionFlags.Administrator);
+}
+
+/** Identificação de quem executou a ação: username#discriminator (só o username se a conta não tiver discriminator). */
+function formatAuthorTag(author) {
+  const { username, discriminator } = author;
+  const hasDiscriminator = discriminator && discriminator !== '0' && discriminator !== '0000';
+  return hasDiscriminator ? `${username}#${discriminator}` : username;
+}
+
+/**
+ * Motivo padronizado para o registro de auditoria: o que o autor pediu + quem executou a ação.
+ * Se passar do limite da API, corta o motivo e preserva a identificação do autor.
+ */
+function buildAuditReason(motivo, acao, author) {
+  const suffix = ` (${acao} por ${formatAuthorTag(author)})`;
+  return `${motivo.slice(0, Math.max(0, MAX_REASON_LENGTH - suffix.length))}${suffix}`;
+}
+
+/** Converte o limite salvo no banco em um inteiro positivo; senão usa o padrão. */
+function toLimit(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
 export default {
   name: 'unmute',
   aliases: ['desmutar', 'dessilenciar'],
@@ -50,13 +85,26 @@ export default {
   async execute({ client, message, prefixo }) {
     const { emojis, database } = client.brain;
 
+    // Servidor onde o comando foi usado (não funciona em DM)
+    const guild = message.guild ?? (await message.resolveGuild().catch(() => null));
+    if (!guild) {
+      return message.reply(`${emojis.cross_system} Este comando só pode ser usado dentro de um servidor.`);
+    }
+
+    // Membro que executou o comando (o cache pode estar vazio, então busca na API)
+    const authorMember = message.member ?? (await guild.fetchMember(message.author.id).catch(() => null));
+    if (!authorMember) {
+      return message.reply(`${emojis.cross_system} Não consegui carregar os seus dados neste servidor. Tente novamente.`);
+    }
+
     // Permissão de quem executa
-    if (!message.member.permissions.has('MODERATE_MEMBERS')) {
+    if (!hasPermission(authorMember, PermissionFlags.ModerateMembers)) {
       return message.reply(`${emojis.cross_system} Você não tem permissão para remover o silenciamento de membros.`);
     }
 
     // Permissão do bot
-    if (!message.guild.members.get(client.user.id)?.permissions.has('MODERATE_MEMBERS')) {
+    const botMember = guild.members.me ?? (await guild.fetchMe().catch(() => null));
+    if (!hasPermission(botMember, PermissionFlags.ModerateMembers)) {
       return message.reply(`${emojis.cross_system} Eu não tenho permissão para remover o silenciamento de membros neste servidor.`);
     }
 
@@ -79,17 +127,20 @@ export default {
     // Limite máximo por comando (reaproveita a configuração de bans do servidor, como o mute)
     let MAX_UNMUTES = DEFAULT_MAX_UNMUTES;
     try {
-      const server = await database.Server.get(message.guild.id);
-      MAX_UNMUTES = server?.moderation?.maxMutesPerCommand || DEFAULT_MAX_UNMUTES;
+      const server = await database.Server.get(guild.id);
+      MAX_UNMUTES = toLimit(server?.moderation?.maxMutesPerCommand, DEFAULT_MAX_UNMUTES);
     } catch {}
 
     if (ids.length > MAX_UNMUTES) {
       return message.reply(`${emojis.cross_anim} Você pode remover o silenciamento de no máximo ${MAX_UNMUTES} usuários por comando.`);
     }
 
+    // Motivo registrado na auditoria: o que o autor pediu + quem executou
+    const unmuteReason = buildAuditReason(motivo, 'Desmutado', message.author);
+
     // Hierarquia do autor: o dono do servidor ignora a checagem de cargos
-    const authorIsOwner = message.author.id === message.guild.ownerId;
-    const authorPosition = getHighestRolePosition(message.member);
+    const authorIsOwner = message.author.id === guild.ownerId;
+    const authorPosition = getHighestRolePosition(authorMember);
 
     const unmuteResults = [];
 
@@ -100,13 +151,8 @@ export default {
         continue;
       }
 
-      // Busca o membro direto da API para ter o estado atual do timeout. Se não estiver no servidor, não há o que remover.
-      let member;
-      try {
-        member = await message.guild.members.fetch(userId);
-      } catch {
-        member = null;
-      }
+      // Busca o membro direto da API (guild.fetchMember não usa cache) para ter o estado atual do timeout. Se não estiver no servidor, não há o que remover.
+      const member = await guild.fetchMember(userId).catch(() => null);
 
       if (!member) {
         unmuteResults.push({ userId, success: false, reason: 'usuário não encontrado no servidor' });
@@ -133,7 +179,7 @@ export default {
       }
 
       try {
-        await member.timeout(null, motivo); // null limpa o timeout
+        await member.timeout(null, unmuteReason); // null limpa o timeout
         unmuteResults.push({ userId, success: true });
       } catch (error) {
         unmuteResults.push({ userId, success: false, reason: `erro ao tentar remover o silenciamento: \`${error.message}\`` });

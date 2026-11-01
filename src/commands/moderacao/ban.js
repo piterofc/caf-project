@@ -1,3 +1,5 @@
+import { PermissionFlags } from '@fluxerjs/core';
+
 const MENTION_REGEX = /^<@!?(\d{15,21})>$/;
 const ID_REGEX = /^(\d{15,21})$/;
 const DEFAULT_MAX_BANS = 5;
@@ -39,10 +41,15 @@ function getHighestRolePosition(member) {
 
 /**
  * Pede confirmação final ao autor, reagindo com CONFIRM_EMOJI / SKIP_EMOJI na mensagem do bot.
- * Só reações do autor do comando contam. Retorna 'confirm', 'cancel' ou 'timeout'.
+ * Só reações do autor do comando contam. Retorna 'confirm', 'cancel', 'timeout' ou 'error' (falha ao enviar a pergunta).
  */
 async function confirmAuthor({ message, promptText }) {
-  const prompt = await message.reply(promptText);
+  let prompt;
+  try {
+    prompt = await message.reply(promptText);
+  } catch {
+    return 'error'; // não conseguiu enviar a pergunta
+  }
 
   return new Promise((resolve) => {
     let settled = false;
@@ -77,6 +84,43 @@ async function confirmAuthor({ message, promptText }) {
   });
 }
 
+/**
+ * Verifica uma permissão do membro. Administrator concede todas as permissões.
+ * Usa o enum oficial PermissionFlags (strings como 'BAN_MEMBERS' não são nomes válidos no SDK).
+ */
+function hasPermission(member, flag) {
+  const permissions = member?.permissions;
+  if (!permissions) return false;
+  return permissions.has(flag) || permissions.has(PermissionFlags.Administrator);
+}
+
+/** Identificação de quem executou a ação: username#discriminator (só o username se a conta não tiver discriminator). */
+function formatAuthorTag(author) {
+  const { username, discriminator } = author;
+  const hasDiscriminator = discriminator && discriminator !== '0' && discriminator !== '0000';
+  return hasDiscriminator ? `${username}#${discriminator}` : username;
+}
+
+/**
+ * Motivo padronizado para o registro de auditoria: o que o autor pediu + quem executou a ação.
+ * Se passar do limite da API, corta o motivo e preserva a identificação do autor.
+ */
+function buildAuditReason(motivo, acao, author) {
+  const suffix = ` (${acao} por ${formatAuthorTag(author)})`;
+  return `${motivo.slice(0, Math.max(0, MAX_REASON_LENGTH - suffix.length))}${suffix}`;
+}
+
+/** Converte o limite salvo no banco em um inteiro positivo; senão usa o padrão. */
+function toLimit(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+/** Busca o membro no cache; se não estiver, busca na API. Retorna null se não for membro do servidor. */
+async function resolveMember(guild, userId) {
+  return guild.members.get(userId) ?? (await guild.fetchMember(userId).catch(() => null));
+}
+
 export default {
   name: 'ban',
   aliases: ['banir'],
@@ -92,13 +136,26 @@ export default {
   async execute({ client, message, prefixo }) {
     const { emojis, database } = client.brain;
 
+    // Servidor onde o comando foi usado (não funciona em DM)
+    const guild = message.guild ?? (await message.resolveGuild().catch(() => null));
+    if (!guild) {
+      return message.reply(`${emojis.cross_system} Este comando só pode ser usado dentro de um servidor.`);
+    }
+
+    // Membro que executou o comando (o cache pode estar vazio, então busca na API)
+    const authorMember = message.member ?? (await guild.fetchMember(message.author.id).catch(() => null));
+    if (!authorMember) {
+      return message.reply(`${emojis.cross_system} Não consegui carregar os seus dados neste servidor. Tente novamente.`);
+    }
+
     // Permissão de quem executa
-    if (!message.member.permissions.has('BAN_MEMBERS')) {
+    if (!hasPermission(authorMember, PermissionFlags.BanMembers)) {
       return message.reply(`${emojis.cross_system} Você não tem permissão para banir membros.`);
     }
 
     // Permissão do bot
-    if (!message.guild.members.get(client.user.id)?.permissions.has('BAN_MEMBERS')) {
+    const botMember = guild.members.me ?? (await guild.fetchMe().catch(() => null));
+    if (!hasPermission(botMember, PermissionFlags.BanMembers)) {
       return message.reply(`${emojis.cross_system} Eu não tenho permissão para banir membros neste servidor.`);
     }
 
@@ -122,8 +179,8 @@ export default {
     let MAX_BANS = DEFAULT_MAX_BANS;
     let exigirConfirmacao = true; // padrão: exigir confirmação do autor antes de banir
     try {
-      const server = await database.Server.get(message.guild.id);
-      MAX_BANS = server?.moderation?.maxBansPerCommand || DEFAULT_MAX_BANS;
+      const server = await database.Server.get(guild.id);
+      MAX_BANS = toLimit(server?.moderation?.maxBansPerCommand, DEFAULT_MAX_BANS);
       exigirConfirmacao = server?.moderation?.banConfirm !== false;
     } catch {}
 
@@ -131,11 +188,12 @@ export default {
       return message.reply(`${emojis.cross_anim} Você pode banir no máximo ${MAX_BANS} usuários por comando.`);
     }
 
-    const banReason = `${motivo} (Banido por ${message.author.username}#${message.author.discriminator})`.slice(0, MAX_REASON_LENGTH);
+    // Motivo registrado na auditoria: o que o autor pediu + quem executou
+    const banReason = buildAuditReason(motivo, 'Banido', message.author);
 
     // Hierarquia do autor: o dono do servidor ignora a checagem de cargos
-    const authorIsOwner = message.author.id === message.guild.ownerId;
-    const authorPosition = getHighestRolePosition(message.member);
+    const authorIsOwner = message.author.id === guild.ownerId;
+    const authorPosition = getHighestRolePosition(authorMember);
 
     // Confirmação final (opcional, ativada por servidor), logo antes de executar
     if (exigirConfirmacao) {
@@ -151,6 +209,8 @@ export default {
           `Motivo: ${motivoPreview}\n` +
           `Reaja com ${CONFIRM_EMOJI} para confirmar ou ${SKIP_EMOJI} para cancelar. (${PROMPT_TIME_MS / 1000}s)`,
       });
+
+      if (decision === 'error') return;
 
       if (decision === 'timeout') {
         return message.reply(`${emojis.cross_anim} Tempo esgotado. Banimento cancelado.`);
@@ -174,17 +234,17 @@ export default {
         continue;
       }
 
-      if (userId === message.guild.ownerId) {
+      if (userId === guild.ownerId) {
         banResults.push({ userId, success: false, reason: 'você não pode banir o dono do servidor' });
         continue;
       }
 
-      const member = message.guild.members.get(userId);
+      const member = await resolveMember(guild, userId);
 
       // Não está no servidor: tenta banir direto pelo ID
       if (!member) {
         try {
-          await message.guild.ban(userId, { reason: banReason });
+          await guild.ban(userId, { reason: banReason });
           banResults.push({ userId, success: true, reason: motivo });
         } catch (error) {
           banResults.push({ userId, success: false, reason: `usuário não está no servidor e o ban por ID falhou: \`${error.message}\`` });

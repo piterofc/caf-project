@@ -1,3 +1,5 @@
+import { PermissionFlags } from '@fluxerjs/core';
+
 const MENTION_REGEX = /^<@!?(\d{15,21})>$/;
 const ID_REGEX = /^(\d{15,21})$/;
 const DURATION_REGEX = /^(?:\d+[smhdw])+$/i;
@@ -133,11 +135,18 @@ function getHighestRolePosition(member) {
  * - uma mensagem dele no mesmo canal que passe na validação -> { type: 'answer', value }
  * - uma reação com SKIP_EMOJI na pergunta                    -> { type: 'skip' }
  * - nada                                                      -> { type: 'timeout' }
+ * - falha ao enviar a pergunta                                -> { type: 'error' }
  * Respostas inválidas recebem um aviso e a espera continua.
  */
 async function askAuthor({ message, promptText, validate }) {
-  const channel = message.channel ?? (await message.resolveChannel());
-  const prompt = await message.reply(promptText);
+  let channel;
+  let prompt;
+  try {
+    channel = message.channel ?? (await message.resolveChannel());
+    prompt = await message.reply(promptText);
+  } catch {
+    return { type: 'error' }; // não conseguiu enviar a pergunta
+  }
 
   return new Promise((resolve) => {
     let settled = false;
@@ -180,10 +189,15 @@ async function askAuthor({ message, promptText, validate }) {
 
 /**
  * Pede confirmação final ao autor, reagindo com CONFIRM_EMOJI / SKIP_EMOJI na mensagem do bot.
- * Só reações do autor do comando contam. Retorna 'confirm', 'cancel' ou 'timeout'.
+ * Só reações do autor do comando contam. Retorna 'confirm', 'cancel', 'timeout' ou 'error' (falha ao enviar a pergunta).
  */
 async function confirmAuthor({ message, promptText }) {
-  const prompt = await message.reply(promptText);
+  let prompt;
+  try {
+    prompt = await message.reply(promptText);
+  } catch {
+    return 'error'; // não conseguiu enviar a pergunta
+  }
 
   return new Promise((resolve) => {
     let settled = false;
@@ -218,6 +232,43 @@ async function confirmAuthor({ message, promptText }) {
   });
 }
 
+/**
+ * Verifica uma permissão do membro. Administrator concede todas as permissões.
+ * Usa o enum oficial PermissionFlags (strings como 'BAN_MEMBERS' não são nomes válidos no SDK).
+ */
+function hasPermission(member, flag) {
+  const permissions = member?.permissions;
+  if (!permissions) return false;
+  return permissions.has(flag) || permissions.has(PermissionFlags.Administrator);
+}
+
+/** Identificação de quem executou a ação: username#discriminator (só o username se a conta não tiver discriminator). */
+function formatAuthorTag(author) {
+  const { username, discriminator } = author;
+  const hasDiscriminator = discriminator && discriminator !== '0' && discriminator !== '0000';
+  return hasDiscriminator ? `${username}#${discriminator}` : username;
+}
+
+/**
+ * Motivo padronizado para o registro de auditoria: o que o autor pediu + quem executou a ação.
+ * Se passar do limite da API, corta o motivo e preserva a identificação do autor.
+ */
+function buildAuditReason(motivo, acao, author) {
+  const suffix = ` (${acao} por ${formatAuthorTag(author)})`;
+  return `${motivo.slice(0, Math.max(0, MAX_REASON_LENGTH - suffix.length))}${suffix}`;
+}
+
+/** Converte o limite salvo no banco em um inteiro positivo; senão usa o padrão. */
+function toLimit(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+/** Busca o membro no cache; se não estiver, busca na API. Retorna null se não for membro do servidor. */
+async function resolveMember(guild, userId) {
+  return guild.members.get(userId) ?? (await guild.fetchMember(userId).catch(() => null));
+}
+
 export default {
   name: 'mute',
   aliases: ['mutar', 'silenciar'],
@@ -234,13 +285,26 @@ export default {
   async execute({ client, message, prefixo }) {
     const { emojis, database } = client.brain;
 
+    // Servidor onde o comando foi usado (não funciona em DM)
+    const guild = message.guild ?? (await message.resolveGuild().catch(() => null));
+    if (!guild) {
+      return message.reply(`${emojis.cross_system} Este comando só pode ser usado dentro de um servidor.`);
+    }
+
+    // Membro que executou o comando (o cache pode estar vazio, então busca na API)
+    const authorMember = message.member ?? (await guild.fetchMember(message.author.id).catch(() => null));
+    if (!authorMember) {
+      return message.reply(`${emojis.cross_system} Não consegui carregar os seus dados neste servidor. Tente novamente.`);
+    }
+
     // Permissão de quem executa
-    if (!message.member.permissions.has('MODERATE_MEMBERS')) {
+    if (!hasPermission(authorMember, PermissionFlags.ModerateMembers)) {
       return message.reply(`${emojis.cross_system} Você não tem permissão para silenciar membros.`);
     }
 
     // Permissão do bot
-    if (!message.guild.members.get(client.user.id)?.permissions.has('MODERATE_MEMBERS')) {
+    const botMember = guild.members.me ?? (await guild.fetchMe().catch(() => null));
+    if (!hasPermission(botMember, PermissionFlags.ModerateMembers)) {
       return message.reply(`${emojis.cross_system} Eu não tenho permissão para silenciar membros neste servidor.`);
     }
 
@@ -249,8 +313,8 @@ export default {
     let modo = MODES.PADRAO; // padrão: o comando espera duração e motivo no mesmo comando
     let exigirConfirmacao = true; // padrão: exigir confirmação do autor antes de aplicar o mute
     try {
-      const server = await database.Server.get(message.guild.id);
-      MAX_MUTES = server?.moderation?.maxMutesPerCommand || DEFAULT_MAX_MUTES;
+      const server = await database.Server.get(guild.id);
+      MAX_MUTES = toLimit(server?.moderation?.maxMutesPerCommand, DEFAULT_MAX_MUTES);
 
       const configured = server?.moderation?.muteMode;
       if (Object.values(MODES).includes(configured)) modo = configured;
@@ -309,6 +373,8 @@ export default {
         validate: validateDuration,
       });
 
+      if (answer.type === 'error') return;
+
       if (answer.type === 'timeout') {
         return message.reply(`${emojis.cross_anim} Tempo esgotado. Mute cancelado.`);
       }
@@ -318,8 +384,7 @@ export default {
       duracaoMs = answer.value;
     }
 
-    // Modo perguntar_motivo: o motivo não veio no comando
-    // if (motivo === null && modo === MODES.PERGUNTAR_MOTIVO) {
+    // Modo perguntar_motivo: sempre pergunta o motivo depois do comando
     if (modo === MODES.PERGUNTAR_MOTIVO) {
       const answer = await askAuthor({
         message,
@@ -329,6 +394,8 @@ export default {
         validate: validateReason,
       });
 
+      if (answer.type === 'error') return;
+
       if (answer.type === 'timeout') {
         return message.reply(`${emojis.cross_anim} Tempo esgotado. Mute cancelado.`);
       }
@@ -337,11 +404,12 @@ export default {
 
     motivo = motivo ?? DEFAULT_REASON;
 
-    const muteReason = `${motivo} (Mutado por ${message.author.username}#${message.author.discriminator})`.slice(0, MAX_REASON_LENGTH);
+    // Motivo registrado na auditoria: o que o autor pediu + quem executou
+    const muteReason = buildAuditReason(motivo, 'Mutado', message.author);
 
     // Hierarquia do autor: o dono do servidor ignora a checagem de cargos
-    const authorIsOwner = message.author.id === message.guild.ownerId;
-    const authorPosition = getHighestRolePosition(message.member);
+    const authorIsOwner = message.author.id === guild.ownerId;
+    const authorPosition = getHighestRolePosition(authorMember);
 
     // Confirmação final (ativada por padrão; o servidor pode desligar com muteConfirm: false), logo antes de executar
     if (exigirConfirmacao) {
@@ -357,6 +425,8 @@ export default {
           `Motivo: ${motivoPreview}\n` +
           `Reaja com ${CONFIRM_EMOJI} para confirmar ou ${SKIP_EMOJI} para cancelar. (${PROMPT_TIME_MS / 1000}s)`,
       });
+
+      if (decision === 'error') return;
 
       if (decision === 'timeout') {
         return message.reply(`${emojis.cross_anim} Tempo esgotado. Mute cancelado.`);
@@ -379,18 +449,13 @@ export default {
         continue;
       }
 
-      if (userId === message.guild.ownerId) {
+      if (userId === guild.ownerId) {
         muteResults.push({ userId, success: false, reason: 'você não pode silenciar o dono do servidor' });
         continue;
       }
 
-      // Obter membros do servidor (cache) para checar hierarquia e permissões. Se não estiver no servidor, não faz sentido tentar silenciar.
-      var member;
-      try {
-        member = await message.guild.members.fetch(userId);
-      } catch {
-        member = null;
-      }
+      // Obtém o membro (cache ou API) para checar hierarquia e permissões. Se não estiver no servidor, não faz sentido tentar silenciar.
+      const member = await resolveMember(guild, userId);
 
       // Timeout só faz sentido para quem está no servidor
       if (!member) {
