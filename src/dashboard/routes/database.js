@@ -1,6 +1,4 @@
-import kleur from 'kleur';
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import { PermissionsBitField, PermissionFlags } from '@fluxerjs/core';
 const router = express.Router();
@@ -59,7 +57,7 @@ export default (client) => {
                 Authorization: `Bearer ${user.accessToken}`
             }
         }).catch(() => ({ data: [] }));
-        const temPerm = guildsResponse.data.some((g) => 
+        const temPerm = guildsResponse.data.some((g) =>
             g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
         );
 
@@ -89,7 +87,7 @@ export default (client) => {
                 Authorization: `Bearer ${user.accessToken}`
             }
         }).catch(() => ({ data: [] }));
-        const temPerm = guildsResponse.data.some((g) => 
+        const temPerm = guildsResponse.data.some((g) =>
             g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
         );
 
@@ -101,6 +99,96 @@ export default (client) => {
 
         try {
             const response = await client.brain.database.Server.setBanSync(serverId, banSync);
+            res.json(response);
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);
+            res.status(500).json({ error: 'Erro ao acessar o banco de dados' });
+        }
+    });
+
+    // Moderação - Max bans and confirmation
+    router.post('/servers/:id/moderation/ban', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        const user = req.user;
+
+        // Verifica se o usuário tem permissão no servidor específico
+        const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+            headers: {
+                Authorization: `Bearer ${user.accessToken}`
+            }
+        }).catch(() => ({ data: [] }));
+        const temPerm = guildsResponse.data.some((g) =>
+            g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
+        );
+
+        if (!temPerm) {
+            return res.status(403).json({ error: 'Você não tem permissão para alterar as configurações de moderação deste servidor!' });
+        }
+
+        const { maxBansPerCommand, banConfirm } = req.body;
+
+        try {
+            const response = await client.brain.database.Server.setModerationBanConfig(serverId, { maxBansPerCommand, banConfirm });
+            res.json(response);
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);
+            res.status(500).json({ error: 'Erro ao acessar o banco de dados' });
+        }
+    });
+
+    // Moderação - Max kicks and confirmation
+    router.post('/servers/:id/moderation/kick', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        const user = req.user;
+
+        // Verifica se o usuário tem permissão no servidor específico
+        const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+            headers: {
+                Authorization: `Bearer ${user.accessToken}`
+            }
+        }).catch(() => ({ data: [] }));
+        const temPerm = guildsResponse.data.some((g) => 
+            g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
+        );
+
+        if (!temPerm) {
+            return res.status(403).json({ error: 'Você não tem permissão para alterar as configurações de moderação deste servidor!' });
+        }
+
+        const { maxKicksPerCommand, kickConfirm } = req.body;
+
+        try {
+            const response = await client.brain.database.Server.setModerationKickConfig(serverId, { maxKicksPerCommand, kickConfirm });
+            res.json(response);
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);
+            res.status(500).json({ error: 'Erro ao acessar o banco de dados' });
+        }
+    });
+
+    // Moderação - Max mutes, confirmation and mute mode
+    router.post('/servers/:id/moderation/mute', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        const user = req.user;
+
+        // Verifica se o usuário tem permissão no servidor específico
+        const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+            headers: {
+                Authorization: `Bearer ${user.accessToken}`
+            }
+        }).catch(() => ({ data: [] }));
+        const temPerm = guildsResponse.data.some((g) => 
+            g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
+        );
+
+        if (!temPerm) {
+            return res.status(403).json({ error: 'Você não tem permissão para alterar as configurações de moderação deste servidor!' });
+        }
+
+        const { maxMutesPerCommand, muteConfirm, muteMode } = req.body;
+
+        try {
+            const response = await client.brain.database.Server.setModerationMuteConfig(serverId, { maxMutesPerCommand, muteConfirm, muteMode });
             res.json(response);
         } catch (error) {
             console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);

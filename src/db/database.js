@@ -8,6 +8,42 @@ const globalBansTable = db.table('globalBans');
 const globalBanHistoryTable = db.table('globalBanHistory');
 export const dashboardSessionsTable = db.table('dashboardSessions');
 
+function definedProperties(value) {
+    return Object.fromEntries(
+        Object.entries(value).filter(([, propertyValue]) => propertyValue !== undefined)
+    );
+}
+
+function validateModerationConfig(config, allowedKeys) {
+    const filteredConfig = definedProperties(config);
+
+    for (const key of Object.keys(filteredConfig)) {
+        if (!allowedKeys.includes(key)) {
+            throw new Error(`Configuração de moderação inválida: ${key}.`);
+        }
+    }
+
+    for (const key of ['maxBansPerCommand', 'maxKicksPerCommand', 'maxMutesPerCommand']) {
+        if (key in filteredConfig &&
+            (!Number.isInteger(filteredConfig[key]) || filteredConfig[key] < 1 || filteredConfig[key] > 100)) {
+            throw new Error(`${key} deve ser um número inteiro entre 1 e 100.`);
+        }
+    }
+
+    for (const key of ['banConfirm', 'kickConfirm', 'muteConfirm']) {
+        if (key in filteredConfig && typeof filteredConfig[key] !== 'boolean') {
+            throw new Error(`${key} deve ser um valor booleano.`);
+        }
+    }
+
+    if ('muteMode' in filteredConfig &&
+        !['padrao', 'perguntar_motivo', 'perguntar_tempo'].includes(filteredConfig.muteMode)) {
+        throw new Error('muteMode possui um valor inválido.');
+    }
+
+    return filteredConfig;
+}
+
 export const Server = {
     dbFunctions: {
         _getAll: async () => {
@@ -112,6 +148,66 @@ export const Server = {
         let resp = await Server.dbFunctions._update(serverId, newServerData);
         if (resp.success) {
             return({ success: true, message: `BanSync atualizado para \`${banSync}\` com sucesso!` });
+        }
+    },
+
+    // Moderação - ban config
+    setModerationBanConfig: async (serverId, banConfig) => {
+        if (!banConfig || typeof banConfig !== 'object') {
+            throw new Error('banConfig deve ser um objeto válido.');
+        }
+        banConfig = validateModerationConfig(banConfig, ['maxBansPerCommand', 'banConfirm']);
+
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) {
+            return({ success: false, message: `Servidor não encontrado.` });
+        }
+
+        const newServerData = { moderation: { ...serverData.moderation, ...banConfig } };
+        let resp = await Server.dbFunctions._update(serverId, newServerData);
+
+        if (resp.success) {
+            return({ success: true, message: `Configuração de banimento atualizada com sucesso!` });
+        }
+    },
+
+    // Moderação - kick config
+    setModerationKickConfig: async (serverId, kickConfig) => {
+        if (!kickConfig || typeof kickConfig !== 'object') {
+            throw new Error('kickConfig deve ser um objeto válido.');
+        }
+        kickConfig = validateModerationConfig(kickConfig, ['maxKicksPerCommand', 'kickConfirm']);
+
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) {
+            return({ success: false, message: `Servidor não encontrado.` });
+        }
+
+        const newServerData = { moderation: { ...serverData.moderation, ...kickConfig } };
+        let resp = await Server.dbFunctions._update(serverId, newServerData);
+
+        if (resp.success) {
+            return({ success: true, message: `Configuração de expulsão atualizada com sucesso!` });
+        }
+    },
+
+    // Moderação - mute config
+    setModerationMuteConfig: async (serverId, muteConfig) => {
+        if (!muteConfig || typeof muteConfig !== 'object') {
+            throw new Error('muteConfig deve ser um objeto válido.');
+        }
+        muteConfig = validateModerationConfig(muteConfig, ['maxMutesPerCommand', 'muteConfirm', 'muteMode']);
+
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) {
+            return({ success: false, message: `Servidor não encontrado.` });
+        }
+
+        const newServerData = { moderation: { ...serverData.moderation, ...muteConfig } };
+        let resp = await Server.dbFunctions._update(serverId, newServerData);
+
+        if (resp.success) {
+            return({ success: true, message: `Configuração de silenciamento atualizada com sucesso!` });
         }
     }
 }

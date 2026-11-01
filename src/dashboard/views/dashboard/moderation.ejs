@@ -1,0 +1,359 @@
+<%- include('../partials/head', { title: `${guild.name} - Moderação`, description: `Gerenciar configurações do servidor ${guild.name} no dashboard do CAF` }) %>
+<body>
+    <%- include('../partials/loading') %>
+    <%- include('../partials/header') %>
+
+    <!-- Cabeçalho do servidor (compacto) -->
+    <section class="bg-caf-hero text-white py-2">
+        <div class="container">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
+                <% if (guild.icon) { %>
+                    <img src="https://fluxerusercontent.com/icons/<%= guild.id %>/<%= guild.icon %>.webp" alt="" class="rounded-circle border border-2 border-white shadow-sm" width="44" height="44">
+                <% } else { %>
+                    <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center fs-5 fw-bold border border-2 border-white shadow-sm" style="width: 44px; height: 44px;">
+                        <%= guild.name.charAt(0) %>
+                    </div>
+                <% } %>
+                <div class="me-auto text-truncate">
+                    <h1 class="h5 mb-0 text-truncate"><%= guild.name %></h1>
+                    <small class="text-white-50">Moderação</small>
+                </div>
+                <% if (guildConfig?.premium?.enabled) { %>
+                    <span class="badge rounded-pill text-bg-warning">⭐ Premium - Nível <%= guildConfig?.premium?.tier %></span>
+                <% } %>
+                <a href="/dashboard" class="btn btn-sm btn-outline-light rounded-pill">Trocar servidor</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- <% /*<div class="container flex-grow-1 py-4"> */ %> -->
+    <div class="container-fluid flex-grow-1 py-4 px-4">
+        <!-- <% /* <div class="row g-4"> */ %> -->
+        <div class="row g-5">
+
+            <!-- Menu lateral -->
+            <aside class="col-lg-3">
+                <%- include('../partials/guild-sidebar', { guild, guildConfig, active: 'moderation' }) %>
+            </aside>
+
+            <!-- Conteúdo principal -->
+            <main class="col-lg-9">
+
+                <!-- Infos e configs de ban (não vamos usar include porque é só uma página) -->
+                <!-- - Número máximo de bans por comando e confirmação de ban (sim/não) -->
+                <h2 class="h4 mb-3">Banimento (Ban)</h2>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="card h-100" id="card-max-bans">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Máximo de banimentos por comando</h3>
+                                    <p class="card-text text-muted">Define o número máximo de usuários que podem ser banidos em um único comando. Se o limite for excedido, o comando será cancelado.</p>
+                                </div>
+                                <form id="max-bans-form" class="mt-3">
+                                    <div class="input-group">
+                                        <input type="number" min="1" max="100" class="form-control" id="new-max-bans" value="<%= guildConfig?.moderation?.maxBansPerCommand || 5 %>" required>
+                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card h-100" id="card-ban-confirmation">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Confirmação de banimento</h3>
+                                    <p class="card-text text-muted">Ative ou desative a confirmação antes de banir usuários. Se ativado, você precisará confirmar cada banimento antes que ele seja aplicado.</p>
+                                </div>
+                                <form id="ban-confirmation-form" class="mt-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="ban-confirmation-switch" <%= guildConfig?.moderation?.banConfirm !== false ? 'checked' : '' %>>
+                                        <label class="form-check-label" for="ban-confirmation-switch"><span id="ban-confirmation-label"><%= guildConfig?.moderation?.banConfirm !== false ? 'Ativado' : 'Desativado' %></span></label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary mt-2">Salvar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Infos e configs de kick (não vamos usar include porque é só uma página) -->
+                <!-- - Número máximo de kicks por comando e confirmação de kick (sim/não) -->
+                <h2 class="h4 mb-3">Expulsão (Kick)</h2>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="card h-100" id="card-max-kicks">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Máximo de expulsões por comando</h3>
+                                    <p class="card-text text-muted">Define o número máximo de usuários que podem ser expulsos em um único comando. Se o limite for excedido, o comando será cancelado.</p>
+                                </div>
+                                <form id="max-kicks-form" class="mt-3">
+                                    <div class="input-group">
+                                        <input type="number" min="1" max="100" class="form-control" id="new-max-kicks" value="<%= guildConfig?.moderation?.maxKicksPerCommand || 5 %>" required>
+                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card h-100" id="card-kick-confirmation">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Confirmação de expulsão</h3>
+                                    <p class="card-text text-muted">Ative ou desative a confirmação antes de expulsar usuários. Se ativado, você precisará confirmar cada expulsão antes que ela seja aplicada.</p>
+                                </div>
+                                <form id="kick-confirmation-form" class="mt-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="kick-confirmation-switch" <%= guildConfig?.moderation?.kickConfirm !== false ? 'checked' : '' %>>
+                                        <label class="form-check-label" for="kick-confirmation-switch"><span id="kick-confirmation-label"><%= guildConfig?.moderation?.kickConfirm !== false ? 'Ativado' : 'Desativado' %></span></label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary mt-2">Salvar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Infos e configs de mute (não vamos usar include porque é só uma página) -->
+                <!-- - Número máximo de mutes por comando, confirmação de mute (sim/não) e modo de mute (padrão, perguntar motivo, perguntar tempo) -->
+                <h2 class="h4 mb-3">Silenciamento (Mute)</h2>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-4">
+                        <div class="card h-100" id="card-max-mutes">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Máximo de silenciamentos por comando</h3>
+                                    <p class="card-text text-muted">Define o número máximo de usuários que podem ser silenciados em um único comando. Se o limite for excedido, o comando será cancelado.</p>
+                                </div>
+                                <form id="max-mutes-form" class="mt-3">
+                                    <div class="input-group">
+                                        <input type="number" min="1" max="100" class="form-control" id="new-max-mutes" value="<%= guildConfig?.moderation?.maxMutesPerCommand || 5 %>" required>
+                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card h-100" id="card-mute-confirmation">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Confirmação de silenciamento</h3>
+                                    <p class="card-text text-muted">Ative ou desative a confirmação antes de silenciar usuários. Se ativado, você precisará confirmar cada silenciamento antes que ele seja aplicado.</p>
+                                </div>
+                                <form id="mute-confirmation-form" class="mt-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="mute-confirmation-switch" <%= guildConfig?.moderation?.muteConfirm !== false ? 'checked' : '' %>>
+                                        <label class="form-check-label" for="mute-confirmation-switch"><span id="mute-confirmation-label"><%= guildConfig?.moderation?.muteConfirm !== false ? 'Ativado' : 'Desativado' %></span></label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary mt-2">Salvar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card h-100" id="card-mute-mode">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <h3 class="h6 card-title">Modo de silenciamento</h3>
+                                    <p class="card-text text-muted">Escolha o modo de silenciamento que será usado por padrão. Você pode alterar o modo a qualquer momento ao usar o comando de silenciar.</p>
+                                </div>
+                                <form id="mute-mode-form" class="mt-3">
+                                    <select class="form-select" id="new-mute-mode">
+                                        <option value="padrao" <%= !guildConfig?.moderation?.muteMode || guildConfig?.moderation?.muteMode === 'padrao' ? 'selected' : '' %>>Padrão</option>
+                                        <option value="perguntar_motivo" <%= guildConfig?.moderation?.muteMode === 'perguntar_motivo' ? 'selected' : '' %>>Perguntar motivo</option>
+                                        <option value="perguntar_tempo" <%= guildConfig?.moderation?.muteMode === 'perguntar_tempo' ? 'selected' : '' %>>Perguntar tempo</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-primary mt-2">Salvar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Avisos -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast-feedback" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-text"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+            </div>
+        </div>
+    </div>
+
+    <%- include('../partials/footer', { showAll: false }) %>
+
+    <script>
+        const toastEl = document.getElementById('toast-feedback');
+        const toastText = document.getElementById('toast-text');
+        // Se o Bootstrap JS não carregar, o aviso ainda aparece (sem depender dele)
+        const toast = window.bootstrap ? bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 }) : null;
+
+        function avisar(texto, ok) {
+            toastText.textContent = texto;
+            toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+            toastEl.classList.add(ok ? 'text-bg-success' : 'text-bg-danger');
+            if (toast) {
+                toast.show();
+            } else {
+                toastEl.classList.add('show');
+                setTimeout(() => toastEl.classList.remove('show'), 3500);
+            }
+        }
+
+        function destacar(cardId) {
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            card.classList.add('border', 'border-2', 'border-primary');
+            setTimeout(() => card.classList.remove('border', 'border-2', 'border-primary'), 1500);
+        }
+
+        // Envia o formulário; se der certo, chama aoSucesso para atualizar a tela
+        function configurarFormulario({ formId, url, buildBody, okText, errorText, aoSucesso }) {
+            document.getElementById(formId).addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = e.target.querySelector('button[type="submit"]');
+                const textoOriginal = button.textContent;
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Salvando...';
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(buildBody())
+                    });
+                    const result = await response.json().catch(() => ({}));
+
+                    if (response.ok && result.success !== false) {
+                        aoSucesso();
+                        avisar(okText, true);
+                    } else {
+                        avisar(result.error || result.message || errorText, false);
+                    }
+                } catch (err) {
+                    avisar(errorText, false);
+                } finally {
+                    button.disabled = false;
+                    button.textContent = textoOriginal;
+                }
+            });
+        }
+
+        // Configurações de bans
+        const maxBansInput = document.getElementById('new-max-bans');
+
+        configurarFormulario({
+            formId: 'max-bans-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/ban`,
+            buildBody: () => ({ maxBansPerCommand: parseInt(maxBansInput.value, 10) }),
+            okText: 'Máximo de banimentos alterado com sucesso!',
+            errorText: 'Erro ao alterar máximo de banimentos.',
+            aoSucesso: () => {
+                destacar('card-max-bans');
+            }
+        });
+
+        const banConfirmationSwitch = document.getElementById('ban-confirmation-switch');
+        const banConfirmationLabel = document.getElementById('ban-confirmation-label');
+        banConfirmationSwitch.addEventListener('change', () => {
+            banConfirmationLabel.textContent = banConfirmationSwitch.checked ? 'Ativado' : 'Desativado';
+        });
+
+        configurarFormulario({
+            formId: 'ban-confirmation-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/ban`,
+            buildBody: () => ({ banConfirm: banConfirmationSwitch.checked }),
+            okText: 'Confirmação de banimento alterada com sucesso!',
+            errorText: 'Erro ao alterar confirmação de banimento.',
+            aoSucesso: () => {
+                destacar('card-ban-confirmation');
+            }
+        });
+
+        // Configurações de kicks
+        const maxKicksInput = document.getElementById('new-max-kicks');
+
+        configurarFormulario({
+            formId: 'max-kicks-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/kick`,
+            buildBody: () => ({ maxKicksPerCommand: parseInt(maxKicksInput.value, 10) }),
+            okText: 'Máximo de expulsões alterado com sucesso!',
+            errorText: 'Erro ao alterar máximo de expulsões.',
+            aoSucesso: () => {
+                destacar('card-max-kicks');
+            }
+        });
+
+        const kickConfirmationSwitch = document.getElementById('kick-confirmation-switch');
+        const kickConfirmationLabel = document.getElementById('kick-confirmation-label');
+        kickConfirmationSwitch.addEventListener('change', () => {
+            kickConfirmationLabel.textContent = kickConfirmationSwitch.checked ? 'Ativado' : 'Desativado';
+        });
+
+        configurarFormulario({
+            formId: 'kick-confirmation-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/kick`,
+            buildBody: () => ({ kickConfirm: kickConfirmationSwitch.checked }),
+            okText: 'Confirmação de expulsão alterada com sucesso!',
+            errorText: 'Erro ao alterar confirmação de expulsão.',
+            aoSucesso: () => {
+                destacar('card-kick-confirmation');
+            }
+        });
+
+        // Configurações de mutes
+        const maxMutesInput = document.getElementById('new-max-mutes');
+        configurarFormulario({
+            formId: 'max-mutes-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/mute`,
+            buildBody: () => ({ maxMutesPerCommand: parseInt(maxMutesInput.value, 10) }),
+            okText: 'Máximo de silenciamentos alterado com sucesso!',
+            errorText: 'Erro ao alterar máximo de silenciamentos.',
+            aoSucesso: () => {
+                destacar('card-max-mutes');
+            }
+        });
+
+        const muteConfirmationSwitch = document.getElementById('mute-confirmation-switch');
+        const muteConfirmationLabel = document.getElementById('mute-confirmation-label');
+        muteConfirmationSwitch.addEventListener('change', () => {
+            muteConfirmationLabel.textContent = muteConfirmationSwitch.checked ? 'Ativado' : 'Desativado';
+        });
+
+        configurarFormulario({
+            formId: 'mute-confirmation-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/mute`,
+            buildBody: () => ({ muteConfirm: muteConfirmationSwitch.checked }),
+            okText: 'Confirmação de silenciamento alterada com sucesso!',
+            errorText: 'Erro ao alterar confirmação de silenciamento.',
+            aoSucesso: () => {
+                destacar('card-mute-confirmation');
+            }
+        });
+
+        const muteModeSelect = document.getElementById('new-mute-mode');
+
+        configurarFormulario({
+            formId: 'mute-mode-form',
+            url: `/api/db/servers/<%= guild.id %>/moderation/mute`,
+            buildBody: () => ({ muteMode: muteModeSelect.value }),
+            okText: 'Modo de silenciamento alterado com sucesso!',
+            errorText: 'Erro ao alterar modo de silenciamento.',
+            aoSucesso: () => {
+                destacar('card-mute-mode');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -43,7 +43,7 @@ export default (client) => {
             ).filter(Boolean);
 
             res.render('dashboard/servers', { 
-                user: req.user,
+                // user: req.user,
                 guilds: manageableGuilds
             });
         } catch (error) {
@@ -73,7 +73,7 @@ export default (client) => {
             if (!temPerm) {
                 return res.status(403).render('error', { 
                     error: { message: 'Você não tem acesso à configuração desse servidor!' },
-                    user: req.user 
+                    // user: req.user
                 });
             }
 
@@ -82,7 +82,7 @@ export default (client) => {
             if (!botGuild) {
                 return res.status(404).render('error', { 
                     error: { message: 'O bot não está presente nesse servidor!' },
-                    user: req.user 
+                    // user: req.user
                 });
             }
 
@@ -91,7 +91,7 @@ export default (client) => {
             if (!guildData || Object.keys(guildData).length === 0) {
                 return res.status(404).render('error', { 
                     error: { message: 'Servidor não configurado!' },
-                    user: req.user 
+                    // user: req.user
                 });
             }
 
@@ -99,12 +99,73 @@ export default (client) => {
             if (!guildData.cadastroCompleto) {
                 return res.status(403).render('error', { 
                     error: { message: 'Servidor em processo de cadastro. Volte quando o cadastro estiver completo!' },
-                    user: req.user 
+                    // user: req.user
                 });
             }
 
             res.render('dashboard/guild', { 
-                user: req.user,
+                // user: req.user,
+                guild: guildsResponse.data.find(g => g.id === guildId),
+                guildConfig: guildData
+            });
+        } catch (error) {
+            res.status(500).render('error', { error, user: req.user });
+        }
+    });
+
+
+    // Dashboard - moderação
+    router.get('/:guildId/moderation', ensureAuthenticated, async (req, res) => {
+        try {
+            const guildId = req.params.guildId;
+            const user = req.user;
+
+            // Verifica se o usuário tem permissão no servidor específico
+            const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+                headers: {
+                    Authorization: `Bearer ${user.accessToken}`
+                }
+            }).catch(() => ({ data: [] }));
+
+            const temPerm = guildsResponse.data.some((g) => 
+                g.id == guildId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
+            );
+
+            if (!temPerm) {
+                return res.status(403).render('error', { 
+                    error: { message: 'Você não tem acesso à configuração desse servidor!' },
+                    // user: req.user
+                });
+            }
+
+            // Verifica se o bot está presente no servidor
+            const botGuild = client.guilds.cache.get(guildId);
+            if (!botGuild) {
+                return res.status(404).render('error', { 
+                    error: { message: 'O bot não está presente nesse servidor!' },
+                    // user: req.user
+                });
+            }
+
+            // Obter configuração do servidor do banco de dados
+            let guildData = await Server.get(guildId);
+            if (!guildData || Object.keys(guildData).length === 0) {
+                return res.status(404).render('error', { 
+                    error: { message: 'Servidor não configurado!' },
+                    // user: req.user
+                });
+            }
+
+            // Verificar se o servidor tem o cadastro completo
+            if (!guildData.cadastroCompleto) {
+                return res.status(403).render('error', {
+                    error: { message: 'Servidor em processo de cadastro. Volte quando o cadastro estiver completo!' },
+                    // user: req.user
+                });
+            }
+
+            res.render('dashboard/moderation', {
+                // user: req.user,
                 guild: guildsResponse.data.find(g => g.id === guildId),
                 guildConfig: guildData
             });

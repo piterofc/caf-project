@@ -34,10 +34,13 @@ async function iniciarBot() {
     await brain.carregarEventos(client);
 
     // Fazemos login no Fluxer
-    await client.login(process.env.FLUXER_TOKEN);
-
-    // Logamos que o bot está online
-    console.success(INDEX_PREFIX, 'Bot iniciado com sucesso!');
+    try {
+        await client.login(process.env.FLUXER_TOKEN);
+        console.success(INDEX_PREFIX, 'Cliente logado no Fluxer!');
+    } catch (error) {
+        console.error(INDEX_PREFIX, 'Erro ao fazer login no Fluxer:', error);
+        throw error;
+    }
 
     // Iniciamos o dashboard
     await iniciarDashboard(client);
