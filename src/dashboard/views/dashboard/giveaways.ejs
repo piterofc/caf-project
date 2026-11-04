@@ -121,6 +121,7 @@ const formatarData = (ms) => ms ? new Date(ms).toLocaleString('pt-BR', { timeZon
                 </div>
 
                 <h2 class="h4 mb-3">Histórico</h2>
+                <div id="giveaway-history">
                 <% if (!giveaways.length) { %>
                     <p class="text-muted">Nenhum giveaway criado.</p>
                 <% } %>
@@ -208,6 +209,7 @@ const formatarData = (ms) => ms ? new Date(ms).toLocaleString('pt-BR', { timeZon
                         </ul>
                     </nav>
                 <% } %>
+                </div>
             </main>
         </div>
     </div>
@@ -316,37 +318,73 @@ const formatarData = (ms) => ms ? new Date(ms).toLocaleString('pt-BR', { timeZon
             });
         });
 
-        // Editar
-        document.querySelectorAll('.form-editar').forEach((form) => {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const dados = new FormData(form);
-                const body = {};
-                for (const [chave, valor] of dados.entries()) body[chave] = String(valor).trim();
+        function vincularAcoesDoHistorico() {
+            document.querySelectorAll('#giveaway-history .form-editar').forEach((form) => {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const dados = new FormData(form);
+                    const body = {};
+                    for (const [chave, valor] of dados.entries()) body[chave] = String(valor).trim();
 
-                enviar({
-                    url: `${baseUrl}/${form.dataset.id}/edit`,
-                    body,
-                    okText: 'Giveaway atualizado com sucesso!',
-                    errorText: 'Erro ao editar giveaway.',
-                    botao: form.querySelector('button[type="submit"]')
+                    enviar({
+                        url: `${baseUrl}/${form.dataset.id}/edit`,
+                        body,
+                        okText: 'Giveaway atualizado com sucesso!',
+                        errorText: 'Erro ao editar giveaway.',
+                        botao: form.querySelector('button[type="submit"]')
+                    });
                 });
             });
-        });
 
-        // Encerrar / cancelar / sortear novo ganhador
-        document.querySelectorAll('[data-acao]').forEach((botao) => {
-            botao.addEventListener('click', () => {
-                if (botao.dataset.confirmar && !confirm(botao.dataset.confirmar)) return;
-                enviar({
-                    url: `${baseUrl}/${botao.dataset.id}/${botao.dataset.acao}`,
-                    body: {},
-                    okText: 'Ação concluída com sucesso!',
-                    errorText: 'Erro ao executar a ação.',
-                    botao
+            document.querySelectorAll('#giveaway-history [data-acao]').forEach((botao) => {
+                botao.addEventListener('click', () => {
+                    if (botao.dataset.confirmar && !confirm(botao.dataset.confirmar)) return;
+                    enviar({
+                        url: `${baseUrl}/${botao.dataset.id}/${botao.dataset.acao}`,
+                        body: {},
+                        okText: 'Ação concluída com sucesso!',
+                        errorText: 'Erro ao executar a ação.',
+                        botao
+                    });
                 });
             });
-        });
+        }
+
+        async function trocarPagina(url, atualizarHistorico = true) {
+            const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) throw new Error('Não foi possível carregar esta página de giveaways.');
+            const html = await response.text();
+            const documento = new DOMParser().parseFromString(html, 'text/html');
+            const novoHistorico = documento.getElementById('giveaway-history');
+            const historicoAtual = document.getElementById('giveaway-history');
+            if (!novoHistorico || !historicoAtual) throw new Error('Resposta de paginação inválida.');
+            historicoAtual.replaceWith(novoHistorico);
+            if (atualizarHistorico) window.history.pushState({}, '', url);
+            vincularAcoesDoHistorico();
+            vincularPaginacao();
+        }
+
+        function vincularPaginacao() {
+            document.querySelectorAll('#giveaway-history .page-link').forEach((link) => {
+                link.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    if (link.closest('.page-item')?.classList.contains('disabled') || link.closest('.page-item')?.classList.contains('active')) return;
+                    const historico = document.getElementById('giveaway-history');
+                    historico.classList.add('opacity-50');
+                    try {
+                        await trocarPagina(link.href);
+                    } catch (error) {
+                        avisar(error.message, false);
+                    } finally {
+                        document.getElementById('giveaway-history')?.classList.remove('opacity-50');
+                    }
+                });
+            });
+        }
+
+        window.addEventListener('popstate', () => trocarPagina(window.location.href, false).catch((error) => avisar(error.message, false)));
+        vincularAcoesDoHistorico();
+        vincularPaginacao();
     </script>
 </body>
 </html>
