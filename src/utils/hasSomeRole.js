@@ -1,6 +1,6 @@
 /**
  * Verifica se um usuário possui algum dos cargos permitidos em um servidor específico.
- * @param {Client} client A instância do cliente do Discord.
+ * @param {Client} client A instância do cliente do Fluxer.
  * @param {string} userId O ID do usuário a ser verificado.
  * @param {string} guildId O ID do servidor onde a verificação será feita.
  * @param {Array<string>} allowedRoleIds Um array contendo os IDs dos cargos permitidos.

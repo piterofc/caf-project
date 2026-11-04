@@ -7,7 +7,7 @@ export default {
   exemplos: ['ping', 'p'],
 
   async execute({ client, message }) {
-    // Vamos fazer um ping completo, incluindo cálculo de latência e tempo de resposta do bot e do Discord
+    // Vamos fazer um ping completo, incluindo cálculo de latência e tempo de resposta do bot e do Fluxer
     const start = Date.now();
     const sentMessage = await message.reply(`🏓 Pong!\n${client.brain.emojis.carregando_anim}Calculando latência...`);
     const responseTime = Date.now() - start;

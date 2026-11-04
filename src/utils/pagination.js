@@ -2,8 +2,8 @@ import { EmbedBuilder } from '@fluxerjs/core';
 import { PAGINATION_PREFIX } from '../utils/loggerPrefixes.js';
 
 /**
- * Função para paginar uma lista de itens em mensagens do Discord.
- * @param {Client} client - O cliente do Discord.
+ * Função para paginar uma lista de itens em mensagens do Fluxer.
+ * @param {Client} client - O cliente do Fluxer.
  * @param {Message} message - A mensagem que iniciou a paginação.
  * @param {User} userForReactions - O usuário que pode interagir com a paginação.
  * @param {Array} items - A lista de itens a serem paginados.
