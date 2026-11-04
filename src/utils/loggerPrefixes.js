@@ -24,3 +24,4 @@ export const EVENTHANDLER_PREFIX = circundarPrefixo(kleur.blue('EVENT HANDLER'))
 export const DASHBOARD_PREFIX = circundarPrefixo(kleur.red('DASHBOARD'));
 export const DATABASE_PREFIX = circundarPrefixo(kleur.magenta('DATABASE'));
 export const PAGINATION_PREFIX = circundarPrefixo(kleur.cyan('PAGINATE'));
+export const GIVEAWAY_PREFIX = circundarPrefixo(kleur.yellow('GIVEAWAYS'));

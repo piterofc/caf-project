@@ -1,7 +1,8 @@
 import { Events } from '@fluxerjs/core';
 import brain from '../../brain/brain.js';
 
-import { CLIENT_PREFIX } from '../../utils/loggerPrefixes.js';
+import { CLIENT_PREFIX, GIVEAWAY_PREFIX } from '../../utils/loggerPrefixes.js';
+import { processGiveaways } from '../../services/giveawayService.js';
 
 async function rotacionarStatus(client) {
   // Agora vamos fazer a rotação de status do bot, para que ele fique alternando entre os status definidos no arquivo de configuração
@@ -64,6 +65,22 @@ async function sairDeServers(client) {
   setInterval(sair, brain.config.sairDeServers.interval || 15000); // Intervalo padrão de 15 segundos
 }
 
+async function iniciarGiveaways(client) {
+  async function verificar() {
+    try {
+      await processGiveaways(client, brain.database);
+    } catch (error) {
+      console.error(GIVEAWAY_PREFIX, 'Erro ao verificar giveaways:', error);
+    }
+  }
+
+  // Verificamos imediatamente ao iniciar (publica agendados e encerra os que venceram com o bot offline)
+  await verificar();
+
+  // E depois verificamos a cada intervalo definido na configuração
+  setInterval(verificar, brain.config.giveawayConfig?.interval || 15000); // Intervalo padrão de 15 segundos
+}
+
 export default {
   name: Events.Ready,
   once: true,
@@ -77,6 +94,9 @@ export default {
 
     // Verifica se o bot está em servidores não cadastrados e sai deles
     await sairDeServers(client);
+
+    // Publica/encerra giveaways automaticamente
+    await iniciarGiveaways(client);
 
   },
 };

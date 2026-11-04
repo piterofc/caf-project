@@ -6,6 +6,15 @@ const router = express.Router();
 import { ensureAuthenticated, forwardAuthenticated } from '../auth/authenticated.js';
 
 import { DASHBOARD_PREFIX } from '../../utils/loggerPrefixes.js';
+import {
+    GiveawayError,
+    cancelGiveaway,
+    createGiveaway,
+    editGiveaway,
+    endGiveaway,
+    findGiveaway,
+    rerollGiveaway,
+} from '../../services/giveawayService.js';
 
 export default (client) => {
     // Servers
@@ -193,6 +202,143 @@ export default (client) => {
         } catch (error) {
             console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);
             res.status(500).json({ error: 'Erro ao acessar o banco de dados' });
+        }
+    });
+
+
+    // Giveaways - confere se o usuário é admin do servidor e se o bot/servidor estão aptos.
+    // Em caso de problema já responde ao cliente e retorna null.
+    async function acessoGiveaways(req, res) {
+        const serverId = req.params.id;
+        const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+            headers: {
+                Authorization: `Bearer ${req.user.accessToken}`
+            }
+        }).catch(() => ({ data: [] }));
+        const temPerm = guildsResponse.data.some((g) =>
+            g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
+        );
+
+        if (!temPerm) {
+            res.status(403).json({ success: false, error: 'Você não tem permissão para gerenciar os giveaways deste servidor!' });
+            return null;
+        }
+
+        const guildConfig = await client.brain.database.Server.get(serverId);
+        if (!client.guilds.cache.has(serverId) || !guildConfig?.cadastroCompleto) {
+            res.status(404).json({ success: false, error: 'Servidor não configurado ou o bot não está nele!' });
+            return null;
+        }
+
+        return serverId;
+    }
+
+    // Giveaways - erros esperados (validação) voltam como 400; o resto é erro interno
+    function erroGiveaway(res, error, acao) {
+        if (error instanceof GiveawayError) {
+            return res.status(400).json({ success: false, error: error.message });
+        }
+        console.error(DASHBOARD_PREFIX, `Erro ao ${acao} giveaway:`, error);
+        return res.status(500).json({ success: false, error: 'Erro interno ao processar o giveaway' });
+    }
+
+    // Giveaways - busca o giveaway SOMENTE dentro do servidor informado
+    async function giveawayDoServidor(serverId, giveawayId) {
+        const giveaway = await findGiveaway(client.brain.database, serverId, giveawayId);
+        if (!giveaway) throw new GiveawayError('Giveaway não encontrado neste servidor.');
+        return giveaway;
+    }
+
+    // Giveaways - criar
+    router.post('/servers/:id/giveaways', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoGiveaways(req, res);
+            if (!serverId) return;
+
+            const body = req.body ?? {};
+            const giveaway = await createGiveaway(client, client.brain.database, {
+                guildId: serverId,
+                channelId: body.channelId,
+                creatorId: req.user.id,
+                title: body.title,
+                prize: body.prize,
+                description: body.description,
+                winners: body.winners,
+                roleId: body.roleId,
+                hostId: body.hostId || req.user.id,
+                startAt: body.startAt,
+                endAt: body.endAt,
+                duration: body.duration,
+            });
+            res.json({ success: true, message: 'Giveaway criado com sucesso!', giveaway: { id: giveaway.id, status: giveaway.status } });
+        } catch (error) {
+            erroGiveaway(res, error, 'criar');
+        }
+    });
+
+    // Giveaways - editar
+    router.post('/servers/:id/giveaways/:giveawayId/edit', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoGiveaways(req, res);
+            if (!serverId) return;
+
+            const giveaway = await giveawayDoServidor(serverId, req.params.giveawayId);
+            const body = req.body ?? {};
+            const patch = {};
+            for (const campo of ['title', 'prize', 'description', 'roleId', 'hostId']) {
+                if (body[campo] !== undefined) patch[campo] = body[campo];
+            }
+            if (body.winners !== undefined && body.winners !== '') patch.winners = body.winners;
+
+            await editGiveaway(client, client.brain.database, giveaway.id, patch);
+            res.json({ success: true, message: 'Giveaway atualizado com sucesso!' });
+        } catch (error) {
+            erroGiveaway(res, error, 'editar');
+        }
+    });
+
+    // Giveaways - encerrar agora
+    router.post('/servers/:id/giveaways/:giveawayId/end', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoGiveaways(req, res);
+            if (!serverId) return;
+
+            const giveaway = await giveawayDoServidor(serverId, req.params.giveawayId);
+            const encerrado = await endGiveaway(client, client.brain.database, giveaway.id);
+            res.json({ success: true, message: `Giveaway encerrado. Ganhadores: ${encerrado.winnerIds.length}.` });
+        } catch (error) {
+            erroGiveaway(res, error, 'encerrar');
+        }
+    });
+
+    // Giveaways - cancelar (agendado ou em andamento)
+    router.post('/servers/:id/giveaways/:giveawayId/cancel', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoGiveaways(req, res);
+            if (!serverId) return;
+
+            const giveaway = await giveawayDoServidor(serverId, req.params.giveawayId);
+            await cancelGiveaway(client, client.brain.database, giveaway.id);
+            res.json({ success: true, message: 'Giveaway cancelado.' });
+        } catch (error) {
+            erroGiveaway(res, error, 'cancelar');
+        }
+    });
+
+    // Giveaways - sortear novo(s) ganhador(es)
+    router.post('/servers/:id/giveaways/:giveawayId/reroll', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoGiveaways(req, res);
+            if (!serverId) return;
+
+            const giveaway = await giveawayDoServidor(serverId, req.params.giveawayId);
+            const ganhadores = await rerollGiveaway(client, client.brain.database, giveaway.id, req.body?.amount ?? 1);
+            if (!ganhadores.length) {
+                return res.json({ success: false, error: 'Não há novos participantes elegíveis.' });
+            }
+            res.json({ success: true, message: `${ganhadores.length} novo(s) ganhador(es) sorteado(s)!` });
+        } catch (error) {
+            erroGiveaway(res, error, 'sortear');
         }
     });
 

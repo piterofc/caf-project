@@ -42,6 +42,11 @@ const sairDeServers = {
     interval: 15 * 1000 // 15 segundos
 }
 
+// Configurações dos giveaways
+const giveawayConfig = {
+    interval: 15 * 1000, // 15 segundos entre cada verificação de giveaways para publicar/encerrar
+}
+
 // Configurações do dashboard
 const baseUrl = 'http://localhost:8080'; // Altere para o seu domínio
 const dashboardConfig = {
@@ -60,5 +65,6 @@ export default {
   cargosPermitidos,
   statusConfig,
   sairDeServers,
+  giveawayConfig,
   dashboardConfig,
 };

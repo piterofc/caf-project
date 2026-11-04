@@ -7,6 +7,7 @@ const serversTable = db.table('servers');
 const globalBansTable = db.table('globalBans');
 const globalBanHistoryTable = db.table('globalBanHistory');
 export const dashboardSessionsTable = db.table('dashboardSessions');
+const giveawaysTable = db.table('giveaways');
 
 function definedProperties(value) {
     return Object.fromEntries(
@@ -293,9 +294,113 @@ export const GlobalBanHistory = {
     }
 }
 
+const GIVEAWAY_STATUSES = ['scheduled', 'pending', 'publishing', 'running', 'ending', 'ended', 'cancelled', 'failed'];
+
+function validateGiveaway(giveaway) {
+    if (!giveaway || typeof giveaway !== 'object') {
+        throw new Error('giveaway deve ser um objeto válido.');
+    }
+
+    if (!giveaway.guildId || !giveaway.id || !giveaway.channelId) {
+        throw new Error('Um giveaway precisa de guildId, id e channelId.');
+    }
+
+    if (!Number.isInteger(giveaway.winners) || giveaway.winners < 1 || giveaway.winners > 100) {
+        throw new Error('winners deve ser um inteiro entre 1 e 100.');
+    }
+
+    if (!GIVEAWAY_STATUSES.includes(giveaway.status)) {
+        throw new Error(`Status de giveaway inválido: ${giveaway.status}.`);
+    }
+
+    if (giveaway.entrants !== undefined && !Array.isArray(giveaway.entrants)) {
+        throw new Error('entrants deve ser uma lista de IDs.');
+    }
+
+    return giveaway;
+}
+
+// Como o QuickDB não tem transações, serializamos (por giveaway) tudo que lê e depois grava.
+// Sem isso, duas reações simultâneas leem a mesma lista de participantes e uma delas se perde.
+const giveawayLocks = new Map();
+
+function withGiveawayLock(id, task) {
+    const previous = giveawayLocks.get(id) ?? Promise.resolve();
+    const run = previous.then(task, task);
+    const tail = run.catch(() => {});
+    giveawayLocks.set(id, tail);
+    tail.then(() => {
+        if (giveawayLocks.get(id) === tail) giveawayLocks.delete(id);
+    });
+    return run;
+}
+
+async function persistGiveaway(giveaway) {
+    const valid = validateGiveaway(giveaway);
+    await giveawaysTable.set(valid.id, valid);
+    return valid;
+}
+
+export const Giveaways = {
+    getAll: async () => {
+        const rows = (await giveawaysTable.all()) ?? [];
+        if (Array.isArray(rows)) {
+            return Object.fromEntries(rows.map((row) => [row.id, row.value]));
+        }
+        return rows;
+    },
+    get: async (id) => (await giveawaysTable.get(id)) ?? null,
+    list: async (guildId) => {
+        const all = await Giveaways.getAll();
+        return Object.values(all).filter((item) => item?.guildId === guildId);
+    },
+    save: async (giveaway) => {
+        validateGiveaway(giveaway);
+        return withGiveawayLock(giveaway.id, () => persistGiveaway(giveaway));
+    },
+    /**
+     * Lê, decide e grava com exclusividade para este giveaway.
+     * `mutator` recebe o giveaway atual e devolve o que deve ser alterado (objeto parcial),
+     * ou null/undefined para não alterar nada. Retorna o giveaway atualizado ou null (nada mudou).
+     * Dentro do mutator NÃO chame save/update/mutate/delete (travaria a si mesmo).
+     */
+    mutate: async (id, mutator) => withGiveawayLock(id, async () => {
+        const current = await Giveaways.get(id);
+        if (!current) return null;
+        const patch = await mutator(current);
+        if (!patch) return null;
+        return persistGiveaway({ ...current, ...patch, id: current.id });
+    }),
+    update: async (id, patch) => Giveaways.mutate(id, () => patch),
+    delete: async (id) => withGiveawayLock(id, () => giveawaysTable.delete(id)),
+    getTemplates: async (guildId) => {
+        const server = await Server.get(guildId);
+        return server?.giveawayTemplates ?? {};
+    },
+    saveTemplate: async (guildId, name, template) => {
+        if (!name || !template || typeof template !== 'object') {
+            throw new Error('Nome e template válidos são obrigatórios.');
+        }
+        const server = await Server.get(guildId);
+        if (!server) return null;
+        const templates = { ...(server.giveawayTemplates ?? {}), [name]: template };
+        await Server.dbFunctions._update(guildId, { giveawayTemplates: templates });
+        return template;
+    },
+    deleteTemplate: async (guildId, name) => {
+        const server = await Server.get(guildId);
+        if (!server?.giveawayTemplates || !Object.hasOwn(server.giveawayTemplates, name)) return false;
+        const templates = { ...server.giveawayTemplates };
+        delete templates[name];
+        await Server.dbFunctions._update(guildId, { giveawayTemplates: templates });
+        return true;
+    },
+};
+
 export default {
     dashboardSessionsTable,
     Server,
     GlobalBan,
     GlobalBanHistory,
+    Giveaways,
 };
