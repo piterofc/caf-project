@@ -9,6 +9,8 @@ const globalBanHistoryTable = db.table('globalBanHistory');
 export const dashboardSessionsTable = db.table('dashboardSessions');
 const giveawaysTable = db.table('giveaways');
 const levelingTable = db.table('leveling');
+const inviteCodesTable = db.table('inviteCodes');
+const inviteMembersTable = db.table('inviteMembers');
 
 function definedProperties(value) {
     return Object.fromEntries(
@@ -73,6 +75,57 @@ function validateLevelingConfig(config) {
         throw new Error('xpMin não pode ser maior que xpMax.');
     }
     if (filteredConfig.xpPerLevel !== undefined && filteredConfig.xpPerLevel < 1) throw new Error('xpPerLevel deve ser maior que zero.');
+
+    return filteredConfig;
+}
+
+const INVITES_CONFIG_KEYS = [
+    'joinMessage', 'joinMessageChannel', 'leaveMessage', 'leaveMessageChannel',
+    'leaderboardStyle', 'hideLeftMembersFromLeaderboard',
+    'autoSubtractFakes', 'autoSubtractLeaves', 'autoSubtractLeaveThreshold',
+];
+const INVITES_LEADERBOARD_STYLES = ['normal', 'table', 'mentions'];
+
+function validateInvitesConfig(config) {
+    const filteredConfig = definedProperties(config);
+
+    for (const key of Object.keys(filteredConfig)) {
+        if (!INVITES_CONFIG_KEYS.includes(key)) {
+            throw new Error(`Configuração de convites inválida: ${key}.`);
+        }
+    }
+
+    for (const key of ['joinMessage', 'leaveMessage']) {
+        if (key in filteredConfig &&
+            (typeof filteredConfig[key] !== 'string' || !filteredConfig[key].trim() || filteredConfig[key].length > 4000)) {
+            throw new Error(`${key} deve ser um texto de 1 a 4000 caracteres.`);
+        }
+    }
+
+    for (const key of ['joinMessageChannel', 'leaveMessageChannel']) {
+        if (key in filteredConfig && filteredConfig[key] !== null &&
+            !/^\d{15,21}$/.test(String(filteredConfig[key]))) {
+            throw new Error(`${key} deve ser o ID de um canal (ou null para desativar).`);
+        }
+    }
+
+    if ('leaderboardStyle' in filteredConfig &&
+        !INVITES_LEADERBOARD_STYLES.includes(filteredConfig.leaderboardStyle)) {
+        throw new Error('leaderboardStyle possui um valor inválido.');
+    }
+
+    for (const key of ['hideLeftMembersFromLeaderboard', 'autoSubtractFakes', 'autoSubtractLeaves']) {
+        if (key in filteredConfig && typeof filteredConfig[key] !== 'boolean') {
+            throw new Error(`${key} deve ser um valor booleano.`);
+        }
+    }
+
+    if ('autoSubtractLeaveThreshold' in filteredConfig &&
+        (!Number.isInteger(filteredConfig.autoSubtractLeaveThreshold) ||
+            filteredConfig.autoSubtractLeaveThreshold < 0 ||
+            filteredConfig.autoSubtractLeaveThreshold > 31_536_000)) {
+        throw new Error('autoSubtractLeaveThreshold deve ser um número inteiro de segundos entre 0 e 31536000.');
+    }
 
     return filteredConfig;
 }
@@ -183,17 +236,6 @@ export const Server = {
             return({ success: true, message: `BanSync atualizado para \`${banSync}\` com sucesso!` });
         }
     },
-    setLevelingConfig: async (serverId, levelingConfig) => {
-        if (!levelingConfig || typeof levelingConfig !== 'object') throw new Error('levelingConfig deve ser um objeto válido.');
-        const validConfig = validateLevelingConfig(levelingConfig);
-        const serverData = await Server.dbFunctions._get(serverId);
-        if (!serverData || Object.keys(serverData).length === 0) return { success: false, message: 'Servidor não encontrado.' };
-
-        const response = await Server.dbFunctions._update(serverId, {
-            leveling: { ...serverData.leveling, ...validConfig }
-        });
-        return response.success ? { success: true, message: 'Configuração de níveis atualizada com sucesso!' } : response;
-    },
 
     // Moderação - ban config
     setModerationBanConfig: async (serverId, banConfig) => {
@@ -214,7 +256,6 @@ export const Server = {
             return({ success: true, message: `Configuração de banimento atualizada com sucesso!` });
         }
     },
-
     // Moderação - kick config
     setModerationKickConfig: async (serverId, kickConfig) => {
         if (!kickConfig || typeof kickConfig !== 'object') {
@@ -234,7 +275,6 @@ export const Server = {
             return({ success: true, message: `Configuração de expulsão atualizada com sucesso!` });
         }
     },
-
     // Moderação - mute config
     setModerationMuteConfig: async (serverId, muteConfig) => {
         if (!muteConfig || typeof muteConfig !== 'object') {
@@ -252,6 +292,61 @@ export const Server = {
 
         if (resp.success) {
             return({ success: true, message: `Configuração de silenciamento atualizada com sucesso!` });
+        }
+    },
+
+    // Leveling - configurações de níveis
+    setLevelingConfig: async (serverId, levelingConfig) => {
+        if (!levelingConfig || typeof levelingConfig !== 'object') throw new Error('levelingConfig deve ser um objeto válido.');
+        const validConfig = validateLevelingConfig(levelingConfig);
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) return { success: false, message: 'Servidor não encontrado.' };
+
+        const response = await Server.dbFunctions._update(serverId, {
+            leveling: { ...serverData.leveling, ...validConfig }
+        });
+        return response.success ? { success: true, message: 'Configuração de níveis atualizada com sucesso!' } : response;
+    },
+
+    // Convites - configurações do servidor (as opções que não estiverem salvas usam o padrão do inviteService)
+    getInvitesConfig: async (serverId) => {
+        const serverData = await Server.dbFunctions._get(serverId);
+        return serverData?.invites ?? {};
+    },
+    setInvitesConfig: async (serverId, invitesConfig) => {
+        if (!invitesConfig || typeof invitesConfig !== 'object') {
+            throw new Error('invitesConfig deve ser um objeto válido.');
+        }
+        invitesConfig = validateInvitesConfig(invitesConfig);
+
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) {
+            return({ success: false, message: `Servidor não encontrado.` });
+        }
+
+        const newServerData = { invites: { ...serverData.invites, ...invitesConfig } };
+        let resp = await Server.dbFunctions._update(serverId, newServerData);
+
+        if (resp.success) {
+            return({ success: true, message: `Configuração de convites atualizada com sucesso!` });
+        }
+    },
+    resetInvitesConfig: async (serverId, keys) => {
+        if (!Array.isArray(keys) || keys.some((key) => !INVITES_CONFIG_KEYS.includes(key))) {
+            throw new Error('keys deve ser uma lista de opções de convites válidas.');
+        }
+
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) {
+            return({ success: false, message: `Servidor não encontrado.` });
+        }
+
+        const invites = { ...serverData.invites };
+        for (const key of keys) delete invites[key];
+
+        let resp = await Server.dbFunctions._update(serverId, { invites });
+        if (resp.success) {
+            return({ success: true, message: `Configuração de convites restaurada para o padrão!` });
         }
     }
 }
@@ -459,6 +554,118 @@ export const Giveaways = {
     },
 };
 
+// Convites: um registro por código de convite (chave "servidor:código") e um por membro (chave "servidor:usuário").
+// O membro guarda o histórico de entradas dele, os convites bônus que recebeu e a opção de sair do ranking.
+// Mesma ideia dos giveaways: o QuickDB não tem transações, então serializamos (por registro) tudo que lê e depois grava.
+const inviteLocks = new Map();
+
+function withInviteLock(key, task) {
+    const previous = inviteLocks.get(key) ?? Promise.resolve();
+    const run = previous.then(task, task);
+    const tail = run.catch(() => {});
+    inviteLocks.set(key, tail);
+    tail.then(() => {
+        if (inviteLocks.get(key) === tail) inviteLocks.delete(key);
+    });
+    return run;
+}
+
+const inviteCodeKey = (guildId, code) => `${guildId}:${code}`;
+const inviteMemberKey = (guildId, userId) => `${guildId}:${userId}`;
+
+function validateInviteCode(row) {
+    if (!row || typeof row !== 'object') {
+        throw new Error('O código de convite deve ser um objeto válido.');
+    }
+    if (!row.guildId || !row.code) {
+        throw new Error('Um código de convite precisa de guildId e code.');
+    }
+    if (!Number.isInteger(row.uses) || row.uses < 0) {
+        throw new Error('uses deve ser um inteiro maior ou igual a zero.');
+    }
+    if (!Number.isInteger(row.clearedAmount ?? 0) || (row.clearedAmount ?? 0) < 0) {
+        throw new Error('clearedAmount deve ser um inteiro maior ou igual a zero.');
+    }
+    return row;
+}
+
+function validateInviteMember(row) {
+    if (!row || typeof row !== 'object') {
+        throw new Error('O membro deve ser um objeto válido.');
+    }
+    if (!row.guildId || !row.userId) {
+        throw new Error('Um membro de convites precisa de guildId e userId.');
+    }
+    if (!Array.isArray(row.joins) || !Array.isArray(row.bonus)) {
+        throw new Error('joins e bonus devem ser listas.');
+    }
+    return row;
+}
+
+export const InviteCodes = {
+    list: async (guildId) => {
+        const rows = (await inviteCodesTable.startsWith(`${guildId}:`)) ?? [];
+        return rows.map((row) => row.value);
+    },
+    get: async (guildId, code) => (await inviteCodesTable.get(inviteCodeKey(guildId, code))) ?? null,
+    save: async (row) => {
+        validateInviteCode(row);
+        const key = inviteCodeKey(row.guildId, row.code);
+        return withInviteLock(`code:${key}`, async () => {
+            await inviteCodesTable.set(key, row);
+            return row;
+        });
+    },
+    /** Lê, decide e grava com exclusividade. `mutator` devolve o que mudar (objeto parcial) ou null para não alterar. */
+    mutate: async (guildId, code, mutator) => {
+        const key = inviteCodeKey(guildId, code);
+        return withInviteLock(`code:${key}`, async () => {
+            const current = await InviteCodes.get(guildId, code);
+            if (!current) return null;
+            const patch = await mutator(current);
+            if (!patch) return null;
+            const next = validateInviteCode({ ...current, ...patch, guildId, code });
+            await inviteCodesTable.set(key, next);
+            return next;
+        });
+    },
+    update: async (guildId, code, patch) => InviteCodes.mutate(guildId, code, () => patch),
+    delete: async (guildId, code) => {
+        const key = inviteCodeKey(guildId, code);
+        return withInviteLock(`code:${key}`, () => inviteCodesTable.delete(key));
+    },
+};
+
+export const InviteMembers = {
+    list: async (guildId) => {
+        const rows = (await inviteMembersTable.startsWith(`${guildId}:`)) ?? [];
+        return rows.map((row) => row.value);
+    },
+    get: async (guildId, userId) => (await inviteMembersTable.get(inviteMemberKey(guildId, userId))) ?? null,
+    /**
+     * Igual ao mutate dos giveaways, mas cria o registro do membro se ele ainda não existir
+     * (o mutator recebe um registro vazio e, se devolver null, nada é gravado).
+     */
+    mutate: async (guildId, userId, mutator) => {
+        const key = inviteMemberKey(guildId, userId);
+        return withInviteLock(`member:${key}`, async () => {
+            const current = (await inviteMembersTable.get(key)) ?? {
+                guildId, userId, name: null, joins: [], bonus: [], hideFromLeaderboard: false,
+            };
+            const patch = await mutator(current);
+            if (!patch) return null;
+            const next = validateInviteMember({ ...current, ...patch, guildId, userId });
+            await inviteMembersTable.set(key, next);
+            return next;
+        });
+    },
+    update: async (guildId, userId, patch) => InviteMembers.mutate(guildId, userId, () => patch),
+    delete: async (guildId, userId) => {
+        const key = inviteMemberKey(guildId, userId);
+        return withInviteLock(`member:${key}`, () => inviteMembersTable.delete(key));
+    },
+};
+
 export default {
     dashboardSessionsTable,
     Server,
@@ -466,4 +673,6 @@ export default {
     GlobalBanHistory,
     Giveaways,
     Leveling,
+    InviteCodes,
+    InviteMembers,
 };

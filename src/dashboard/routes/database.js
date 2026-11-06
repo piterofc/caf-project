@@ -15,6 +15,7 @@ import {
     findGiveaway,
     rerollGiveaway,
 } from '../../services/giveawayService.js';
+
 import { getMembersPage } from '../../services/levelingService.js';
 
 async function verificarAdministrador(req, serverId) {
@@ -25,6 +26,15 @@ async function verificarAdministrador(req, serverId) {
         guild.id == serverId && new PermissionsBitField(guild.permissions).has(PermissionFlags.Administrator)
     );
 }
+
+import {
+    INVITE_SETTINGS,
+    INVITE_TEMPLATE_VARIABLES,
+    InviteError,
+    getInviteSettings,
+    previewTemplate,
+    updateInviteSettings,
+} from '../../services/inviteService.js';
 
 export default (client) => {
     // Servers
@@ -505,6 +515,127 @@ export default (client) => {
         } catch (error) {
             console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);
             res.status(500).json({ error: 'Erro ao acessar o banco de dados' });
+        }
+    });
+
+    // Convites - confere se o usuário é admin do servidor e se o bot/servidor estão aptos.
+    // Em caso de problema já responde ao cliente e retorna null.
+    async function acessoInvites(req, res) {
+        const serverId = req.params.id;
+        const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+            headers: {
+                Authorization: `Bearer ${req.user.accessToken}`
+            }
+        }).catch(() => ({ data: [] }));
+        const temPerm = guildsResponse.data.some((g) =>
+            g.id == serverId && (new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator))
+        );
+
+        if (!temPerm) {
+            res.status(403).json({ success: false, error: 'Você não tem permissão para gerenciar os convites deste servidor!' });
+            return null;
+        }
+
+        const guildConfig = await client.brain.database.Server.get(serverId);
+        if (!client.guilds.has(serverId) || !guildConfig?.cadastroCompleto) {
+            res.status(404).json({ success: false, error: 'Servidor não configurado ou o bot não está nele!' });
+            return null;
+        }
+
+        return serverId;
+    }
+
+    // Convites - erros esperados (validação) voltam como 400; o resto é erro interno
+    function erroInvite(res, error, acao) {
+        if (error instanceof InviteError) {
+            return res.status(400).json({ success: false, error: error.message });
+        }
+        console.error(DASHBOARD_PREFIX, `Erro ao ${acao} convites:`, error);
+        return res.status(500).json({ success: false, error: 'Erro interno ao processar os convites' });
+    }
+
+    // Convites - as rotas que gravam só aceitam JSON (um formulário de outro site não consegue enviar JSON com o seu login)
+    function exigirJson(req, res) {
+        if (req.is('application/json')) return true;
+        res.status(415).json({ success: false, error: 'Envie os dados como application/json.' });
+        return false;
+    }
+
+    // Convites - configurações atuais, valores padrão e a definição de cada opção (para montar a página)
+    router.get('/servers/:id/invites/config', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoInvites(req, res);
+            if (!serverId) return;
+
+            const defaults = Object.fromEntries(Object.entries(INVITE_SETTINGS).map(([key, setting]) => [key, setting.padrao]));
+            res.json({
+                success: true,
+                settings: await getInviteSettings(client.brain.database, serverId),
+                defaults,
+                definitions: INVITE_SETTINGS,
+                variables: INVITE_TEMPLATE_VARIABLES.map(([name, description]) => ({ name, description })),
+            });
+        } catch (error) {
+            erroInvite(res, error, 'consultar a configuração de');
+        }
+    });
+
+    // Convites - salvar uma ou mais opções: { joinMessage, joinMessageChannel, ... } (valor null/"" limpa um canal)
+    router.post('/servers/:id/invites/config', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoInvites(req, res);
+            if (!serverId || !exigirJson(req, res)) return;
+
+            const patch = {};
+            for (const [key, value] of Object.entries(req.body ?? {})) {
+                patch[key] = value === '' && INVITE_SETTINGS[key]?.limpavel ? null : value;
+            }
+
+            const { changed, settings } = await updateInviteSettings(client, client.brain.database, serverId, patch);
+            res.json({
+                success: true,
+                message: Object.keys(changed).length ? 'Configuração de convites atualizada com sucesso!' : 'Nada foi alterado.',
+                changed,
+                settings,
+            });
+        } catch (error) {
+            erroInvite(res, error, 'salvar a configuração de');
+        }
+    });
+
+    // Convites - restaurar opções para o padrão: { keys: ['joinMessage', ...] }
+    router.post('/servers/:id/invites/config/reset', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoInvites(req, res);
+            if (!serverId || !exigirJson(req, res)) return;
+
+            const keys = req.body?.keys;
+            if (!Array.isArray(keys) || !keys.length) throw new InviteError('Informe a lista de opções (keys) para restaurar.');
+
+            const patch = Object.fromEntries(keys.map((key) => [String(key), 'padrao']));
+            const { changed, settings } = await updateInviteSettings(client, client.brain.database, serverId, patch);
+            res.json({ success: true, message: 'Configuração de convites restaurada para o padrão!', changed, settings });
+        } catch (error) {
+            erroInvite(res, error, 'restaurar a configuração de');
+        }
+    });
+
+    // Convites - prévia de uma mensagem de entrada/saída: { template } -> { type: 'text', content } ou { type: 'embed', embed }
+    router.post('/servers/:id/invites/preview', ensureAuthenticated, async (req, res) => {
+        try {
+            const serverId = await acessoInvites(req, res);
+            if (!serverId || !exigirJson(req, res)) return;
+
+            const template = req.body?.template;
+            if (typeof template !== 'string' || !template.trim() || template.length > 4000) {
+                throw new InviteError('Envie o template (texto de 1 a 4000 caracteres).');
+            }
+
+            const previa = await previewTemplate(client.brain.database, client.guilds.get(serverId), template);
+            if (typeof previa === 'string') return res.json({ success: true, type: 'text', content: previa });
+            res.json({ success: true, type: 'embed', embed: previa.toJSON() });
+        } catch (error) {
+            erroInvite(res, error, 'gerar a prévia de');
         }
     });
 

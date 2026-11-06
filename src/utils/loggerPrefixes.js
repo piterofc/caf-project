@@ -25,3 +25,4 @@ export const DASHBOARD_PREFIX = circundarPrefixo(kleur.red('DASHBOARD'));
 export const DATABASE_PREFIX = circundarPrefixo(kleur.magenta('DATABASE'));
 export const PAGINATION_PREFIX = circundarPrefixo(kleur.cyan('PAGINATE'));
 export const GIVEAWAY_PREFIX = circundarPrefixo(kleur.yellow('GIVEAWAYS'));
+export const INVITES_PREFIX = circundarPrefixo(kleur.green('INVITES'));

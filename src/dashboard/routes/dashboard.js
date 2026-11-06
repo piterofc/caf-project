@@ -5,6 +5,7 @@ const router = express.Router();
 
 import { ensureAuthenticated, forwardAuthenticated } from '../auth/authenticated.js';
 import { shortId } from '../../services/giveawayService.js';
+import { INVITE_SETTINGS, INVITE_TEMPLATE_VARIABLES, getInviteSettings } from '../../services/inviteService.js';
 import { DASHBOARD_PREFIX } from '../../utils/loggerPrefixes.js';
 
 async function verificarAcessoGiveaway(client, req, guildId) {
@@ -19,6 +20,28 @@ async function verificarAcessoGiveaway(client, req, guildId) {
     }
 
     const botGuild = client.guilds.cache.get(guildId);
+    const guildConfig = await client.brain.database.Server.get(guildId);
+    if (!botGuild || !guildConfig?.cadastroCompleto) {
+        const error = new Error('Servidor não configurado ou bot ausente!');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return { guild, botGuild, guildConfig };
+}
+
+async function verificarAcessoInvites(client, req, guildId) {
+    const response = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+        headers: { Authorization: `Bearer ${req.user?.accessToken}` },
+    }).catch(() => ({ data: [] }));
+    const guild = response.data.find((item) => item.id === guildId);
+    if (!guild || !new PermissionsBitField(guild.permissions).has(PermissionFlags.Administrator)) {
+        const error = new Error('Você não tem acesso à configuração desse servidor!');
+        error.statusCode = 403;
+        throw error;
+    }
+
+    const botGuild = client.guilds.get(guildId);
     const guildConfig = await client.brain.database.Server.get(guildId);
     if (!botGuild || !guildConfig?.cadastroCompleto) {
         const error = new Error('Servidor não configurado ou bot ausente!');
@@ -282,6 +305,31 @@ export default (client) => {
             });
         } catch (error) {
             console.error(DASHBOARD_PREFIX, 'Erro ao obter giveaways:', error);
+            return res.status(error.statusCode || 500).render('error', { error, user: req.user });
+        }
+    });
+
+    // Dashboard - convites (salvar/restaurar/prévia usam a API em /api/db/servers/:id/invites)
+    router.get('/:guildId/invites', ensureAuthenticated, async (req, res) => {
+        try {
+            const guildId = req.params.guildId;
+            const { guild: userGuild, botGuild, guildConfig: guildData } =
+                await verificarAcessoInvites(client, req, guildId);
+
+            const channels = [...botGuild.channels.values()]
+                .filter((channel) => channel.name && (typeof channel.isTextBased === 'function' ? channel.isTextBased() : typeof channel.send === 'function'))
+                .map((channel) => ({ id: channel.id, name: channel.name }));
+
+            return res.render('dashboard/invites', {
+                guild: userGuild,
+                guildConfig: guildData,
+                inviteSettings: await getInviteSettings(client.brain.database, guildId),
+                inviteDefinitions: INVITE_SETTINGS,
+                templateVariables: INVITE_TEMPLATE_VARIABLES,
+                channels,
+            });
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao obter a configuração de convites:', error);
             return res.status(error.statusCode || 500).render('error', { error, user: req.user });
         }
     });

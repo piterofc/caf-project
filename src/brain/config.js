@@ -47,6 +47,12 @@ const giveawayConfig = {
     interval: 15 * 1000, // 15 segundos entre cada verificação de giveaways para publicar/encerrar
 }
 
+// Configurações dos convites
+const inviteConfig = {
+    timezone: 'America/Sao_Paulo', // Fuso usado para agrupar os dias do gráfico de convites
+    guildsInParallel: 5, // Quantos servidores sincronizam os convites ao mesmo tempo ao ligar
+}
+
 // Configurações do dashboard
 const baseUrl = 'http://localhost:8080'; // Altere para o seu domínio
 const dashboardConfig = {
@@ -66,5 +72,6 @@ export default {
   statusConfig,
   sairDeServers,
   giveawayConfig,
+  inviteConfig,
   dashboardConfig,
 };

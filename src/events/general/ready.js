@@ -1,8 +1,9 @@
 import { Events } from '@fluxerjs/core';
 import brain from '../../brain/brain.js';
 
-import { CLIENT_PREFIX, GIVEAWAY_PREFIX } from '../../utils/loggerPrefixes.js';
+import { CLIENT_PREFIX, GIVEAWAY_PREFIX, INVITES_PREFIX } from '../../utils/loggerPrefixes.js';
 import { processGiveaways } from '../../services/giveawayService.js';
+import { initializeInvites } from '../../services/inviteService.js';
 
 async function rotacionarStatus(client) {
   // Agora vamos fazer a rotação de status do bot, para que ele fique alternando entre os status definidos no arquivo de configuração
@@ -81,6 +82,15 @@ async function iniciarGiveaways(client) {
   setInterval(verificar, brain.config.giveawayConfig?.interval || 15000); // Intervalo padrão de 15 segundos
 }
 
+async function iniciarConvites(client) {
+  try {
+    // Carrega os usos conhecidos e sincroniza os convites de cada servidor (os que chegarem depois são sincronizados pelo evento guildCreate)
+    await initializeInvites(client, brain.database);
+  } catch (error) {
+    console.error(INVITES_PREFIX, 'Erro ao iniciar o sistema de convites:', error);
+  }
+}
+
 export default {
   name: Events.Ready,
   once: true,
@@ -98,5 +108,7 @@ export default {
     // Publica/encerra giveaways automaticamente
     await iniciarGiveaways(client);
 
+    // Sincroniza os convites dos servidores (usado para descobrir qual convite cada membro usou)
+    await iniciarConvites(client);
   },
 };

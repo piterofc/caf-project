@@ -13,8 +13,11 @@
   },
   "dependencies": {
     "@fluxerjs/core": "^3.3.0",
+    "@fontsource/roboto": "^5.3.0",
+    "@napi-rs/canvas": "^1.1.0",
     "axios": "^1.21.0",
     "better-sqlite3": "^13.0.3",
+    "chart.js": "^4.6.1",
     "connect-flash": "^0.1.1",
     "consola": "^3.4.2",
     "cookie-parser": "^1.4.7",
