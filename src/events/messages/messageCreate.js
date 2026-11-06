@@ -1,6 +1,7 @@
 import { Events } from '@fluxerjs/core';
 
 import { verificarComando } from '../../brain/handlers/commandHandler.js';
+import { processMessageXp } from '../../services/levelingService.js';
 
 async function verificarMencao(message) {
   const botId = message.client.user?.id;
@@ -15,6 +16,8 @@ export default {
   once: false,
 
   async execute(client, message) {
+    await processMessageXp(client, message);
+
     await verificarMencao(message).then(async (mencionado) => {
       if (mencionado) {
         const brain = client.brain;

@@ -8,6 +8,7 @@ const globalBansTable = db.table('globalBans');
 const globalBanHistoryTable = db.table('globalBanHistory');
 export const dashboardSessionsTable = db.table('dashboardSessions');
 const giveawaysTable = db.table('giveaways');
+const levelingTable = db.table('leveling');
 
 function definedProperties(value) {
     return Object.fromEntries(
@@ -41,6 +42,37 @@ function validateModerationConfig(config, allowedKeys) {
         !['padrao', 'perguntar_motivo', 'perguntar_tempo'].includes(filteredConfig.muteMode)) {
         throw new Error('muteMode possui um valor inválido.');
     }
+
+    return filteredConfig;
+}
+
+function validateLevelingConfig(config) {
+    const filteredConfig = definedProperties(config);
+    const allowedKeys = ['enabled', 'xpMin', 'xpMax', 'cooldownSeconds', 'xpPerLevel', 'announce', 'levelUpMessage', 'levelUpChannelId', 'removePreviousRoles', 'levelRoles', 'roleBoosts'];
+
+    for (const key of Object.keys(filteredConfig)) {
+        if (!allowedKeys.includes(key)) throw new Error(`Configuração de níveis inválida: ${key}.`);
+    }
+    for (const key of ['xpMin', 'xpMax', 'cooldownSeconds', 'xpPerLevel']) {
+        if (key in filteredConfig && (!Number.isInteger(filteredConfig[key]) || filteredConfig[key] < 0 || filteredConfig[key] > 1000000)) {
+            throw new Error(`${key} deve ser um número inteiro entre 0 e 1000000.`);
+        }
+    }
+    for (const key of ['enabled', 'announce', 'removePreviousRoles']) {
+        if (key in filteredConfig && typeof filteredConfig[key] !== 'boolean') throw new Error(`${key} deve ser booleano.`);
+    }
+    if ('levelUpMessage' in filteredConfig && (typeof filteredConfig.levelUpMessage !== 'string' || filteredConfig.levelUpMessage.length > 1000)) throw new Error('levelUpMessage deve ser uma string de até 1000 caracteres.');
+    if ('levelUpChannelId' in filteredConfig && filteredConfig.levelUpChannelId !== null && typeof filteredConfig.levelUpChannelId !== 'string') throw new Error('levelUpChannelId deve ser um canal válido ou nulo.');
+    if ('levelRoles' in filteredConfig && (!Array.isArray(filteredConfig.levelRoles) || filteredConfig.levelRoles.some((item) => !Number.isInteger(item.level) || item.level < 1 || typeof item.roleId !== 'string'))) {
+        throw new Error('levelRoles possui um formato inválido.');
+    }
+    if ('roleBoosts' in filteredConfig && (!Array.isArray(filteredConfig.roleBoosts) || filteredConfig.roleBoosts.some((item) => typeof item.roleId !== 'string' || typeof item.multiplier !== 'number' || item.multiplier < 1 || item.multiplier > 10))) {
+        throw new Error('roleBoosts possui um formato inválido.');
+    }
+    if (filteredConfig.xpMin !== undefined && filteredConfig.xpMax !== undefined && filteredConfig.xpMin > filteredConfig.xpMax) {
+        throw new Error('xpMin não pode ser maior que xpMax.');
+    }
+    if (filteredConfig.xpPerLevel !== undefined && filteredConfig.xpPerLevel < 1) throw new Error('xpPerLevel deve ser maior que zero.');
 
     return filteredConfig;
 }
@@ -151,6 +183,17 @@ export const Server = {
             return({ success: true, message: `BanSync atualizado para \`${banSync}\` com sucesso!` });
         }
     },
+    setLevelingConfig: async (serverId, levelingConfig) => {
+        if (!levelingConfig || typeof levelingConfig !== 'object') throw new Error('levelingConfig deve ser um objeto válido.');
+        const validConfig = validateLevelingConfig(levelingConfig);
+        const serverData = await Server.dbFunctions._get(serverId);
+        if (!serverData || Object.keys(serverData).length === 0) return { success: false, message: 'Servidor não encontrado.' };
+
+        const response = await Server.dbFunctions._update(serverId, {
+            leveling: { ...serverData.leveling, ...validConfig }
+        });
+        return response.success ? { success: true, message: 'Configuração de níveis atualizada com sucesso!' } : response;
+    },
 
     // Moderação - ban config
     setModerationBanConfig: async (serverId, banConfig) => {
@@ -212,6 +255,25 @@ export const Server = {
         }
     }
 }
+
+export const Leveling = {
+    get: async (guildId, userId) => {
+        const value = await levelingTable.get(`${guildId}:${userId}`);
+        return value ? { xp: value.xp ?? 0, updatedAt: value.updatedAt } : { xp: 0 };
+    },
+    set: async (guildId, userId, data) => levelingTable.set(`${guildId}:${userId}`, data),
+    delete: async (guildId, userId) => levelingTable.delete(`${guildId}:${userId}`),
+    deleteAll: async (guildId) => {
+        const entries = await levelingTable.all();
+        await Promise.all(entries.filter((entry) => entry.id.startsWith(`${guildId}:`)).map((entry) => levelingTable.delete(entry.id)));
+    },
+    getAll: async (guildId) => {
+        const entries = await levelingTable.all();
+        return entries
+            .filter((entry) => entry.id.startsWith(`${guildId}:`))
+            .map((entry) => ({ userId: entry.id.slice(guildId.length + 1), xp: entry.value?.xp ?? 0, updatedAt: entry.value?.updatedAt }));
+    },
+};
 
 export const GlobalBan = {
     dbFunctions: {
@@ -403,4 +465,5 @@ export default {
     GlobalBan,
     GlobalBanHistory,
     Giveaways,
+    Leveling,
 };

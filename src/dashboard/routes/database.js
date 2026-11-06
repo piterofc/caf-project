@@ -15,6 +15,16 @@ import {
     findGiveaway,
     rerollGiveaway,
 } from '../../services/giveawayService.js';
+import { getMembersPage } from '../../services/levelingService.js';
+
+async function verificarAdministrador(req, serverId) {
+    const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+        headers: { Authorization: `Bearer ${req.user?.accessToken}` }
+    }).catch(() => ({ data: [] }));
+    return guildsResponse.data.some((guild) =>
+        guild.id == serverId && new PermissionsBitField(guild.permissions).has(PermissionFlags.Administrator)
+    );
+}
 
 export default (client) => {
     // Servers
@@ -112,6 +122,76 @@ export default (client) => {
         } catch (error) {
             console.error(DASHBOARD_PREFIX, 'Erro ao acessar o banco de dados:', error);
             res.status(500).json({ error: 'Erro ao acessar o banco de dados' });
+        }
+    });
+
+    // Níveis
+    router.post('/servers/:id/leveling', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        const user = req.user;
+        const guildsResponse = await axios.get('https://api.fluxer.app/users/@me/guilds', {
+            headers: { Authorization: `Bearer ${user.accessToken}` }
+        }).catch(() => ({ data: [] }));
+        const temPerm = guildsResponse.data.some((g) =>
+            g.id == serverId && new PermissionsBitField(g.permissions).has(PermissionFlags.Administrator)
+        );
+
+        if (!temPerm) return res.status(403).json({ error: 'Você não tem permissão para alterar os níveis deste servidor!' });
+
+        try {
+            const body = req.body ?? {};
+            const response = await client.brain.database.Server.setLevelingConfig(serverId, {
+                enabled: body.enabled,
+                xpMin: Number(body.xpMin),
+                xpMax: Number(body.xpMax),
+                cooldownSeconds: Number(body.cooldownSeconds),
+                xpPerLevel: Number(body.xpPerLevel),
+                announce: body.announce,
+                levelUpMessage: body.levelUpMessage,
+                levelUpChannelId: body.levelUpChannelId || null,
+                removePreviousRoles: body.removePreviousRoles,
+                levelRoles: Array.isArray(body.levelRoles) ? body.levelRoles.map((item) => ({ level: Number(item.level), roleId: String(item.roleId) })) : [],
+                roleBoosts: Array.isArray(body.roleBoosts) ? body.roleBoosts.map((item) => ({ roleId: String(item.roleId), multiplier: Number(item.multiplier) })) : [],
+            });
+            return res.json(response);
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao salvar níveis:', error);
+            return res.status(400).json({ error: error.message || 'Configuração de níveis inválida.' });
+        }
+    });
+
+    router.get('/servers/:id/leveling/members', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        if (!await verificarAdministrador(req, serverId)) return res.status(403).json({ error: 'Você não tem permissão para consultar os níveis deste servidor!' });
+        try {
+            return res.json(await getMembersPage(client, serverId, req.query.page, 10));
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao listar membros com XP:', error);
+            return res.status(500).json({ error: 'Erro ao listar membros com XP.' });
+        }
+    });
+
+    router.post('/servers/:id/leveling/members/:userId/reset', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        if (!await verificarAdministrador(req, serverId)) return res.status(403).json({ error: 'Você não tem permissão para resetar os níveis deste servidor!' });
+        try {
+            await client.brain.database.Leveling.delete(serverId, req.params.userId);
+            return res.json({ success: true, message: 'XP do membro resetado com sucesso.' });
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao resetar XP do membro:', error);
+            return res.status(500).json({ error: 'Erro ao resetar XP do membro.' });
+        }
+    });
+
+    router.post('/servers/:id/leveling/reset', ensureAuthenticated, async (req, res) => {
+        const serverId = req.params.id;
+        if (!await verificarAdministrador(req, serverId)) return res.status(403).json({ error: 'Você não tem permissão para resetar os níveis deste servidor!' });
+        try {
+            await client.brain.database.Leveling.deleteAll(serverId);
+            return res.json({ success: true, message: 'XP de todos os membros foi resetado com sucesso.' });
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao resetar todos os níveis:', error);
+            return res.status(500).json({ error: 'Erro ao resetar todos os níveis.' });
         }
     });
 

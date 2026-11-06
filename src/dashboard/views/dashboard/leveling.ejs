@@ -1,0 +1,120 @@
+<%- include('../partials/head', { title: `${guild.name} - Níveis`, description: `Gerenciar níveis do servidor ${guild.name}` }) %>
+<body>
+    <%- include('../partials/loading') %>
+    <%- include('../partials/header') %>
+    <section class="bg-caf-hero text-white py-2">
+        <div class="container d-flex align-items-center gap-3">
+            <% if (guild.icon) { %><img src="https://fluxerusercontent.com/icons/<%= guild.id %>/<%= guild.icon %>.webp" alt="" class="rounded-circle border border-2 border-white" width="44" height="44"><% } %>
+            <div class="me-auto"><h1 class="h5 mb-0"><%= guild.name %></h1><small class="text-white-50">Níveis</small></div>
+            <a href="/dashboard" class="btn btn-sm btn-outline-light rounded-pill">Trocar servidor</a>
+        </div>
+    </section>
+    <div class="container-fluid flex-grow-1 py-4 px-4">
+        <div class="row g-5">
+            <aside class="col-lg-3"><%- include('../partials/guild-sidebar', { guild, guildConfig, active: 'leveling' }) %></aside>
+            <main class="col-lg-9">
+                <form id="leveling-form">
+                    <div class="d-flex align-items-center mb-3">
+                        <div><h2 class="h4 mb-1">Sistema de níveis</h2><p class="text-secondary mb-0">Defina como o XP é ganho e quais cargos são entregues.</p></div>
+                        <div class="form-check form-switch ms-auto me-3 mb-0"><input class="form-check-input" type="checkbox" role="switch" id="leveling-enabled" <%= guildConfig?.leveling?.enabled ? 'checked' : '' %>><label class="form-check-label" for="leveling-enabled">Ativado</label></div>
+                        <button class="btn btn-primary ms-auto" type="submit">Salvar configurações</button>
+                    </div>
+                    <div class="card mb-4"><div class="card-body"><div class="row g-3">
+                        <div class="col-md-4"><label class="form-label" for="xp-min">XP mínimo por mensagem</label><input class="form-control" id="xp-min" type="number" min="0" max="1000000" value="<%= guildConfig?.leveling?.xpMin ?? 15 %>" required></div>
+                        <div class="col-md-4"><label class="form-label" for="xp-max">XP máximo por mensagem</label><input class="form-control" id="xp-max" type="number" min="0" max="1000000" value="<%= guildConfig?.leveling?.xpMax ?? 25 %>" required></div>
+                        <div class="col-md-4"><label class="form-label" for="cooldown">Cooldown entre mensagens (segundos)</label><input class="form-control" id="cooldown" type="number" min="0" max="1000000" value="<%= guildConfig?.leveling?.cooldownSeconds ?? 60 %>" required></div>
+                        <div class="col-md-4"><label class="form-label" for="xp-level">XP necessário por nível</label><input class="form-control" id="xp-level" type="number" min="1" max="1000000" value="<%= guildConfig?.leveling?.xpPerLevel ?? 100 %>" required><small class="text-secondary">Base 100: nível 1 = 100 XP, nível 2 = 200 XP, nível 3 = 300 XP.</small></div>
+                        <div class="col-md-4"><label class="form-label" for="announce">Anunciar promoção</label><select class="form-select" id="announce"><option value="true" <%= guildConfig?.leveling?.announce !== false ? 'selected' : '' %>>Sim</option><option value="false" <%= guildConfig?.leveling?.announce === false ? 'selected' : '' %>>Não</option></select></div>
+                        <div class="col-md-6"><label class="form-label" for="remove-roles">Remover cargo de nível anterior</label><select class="form-select" id="remove-roles"><option value="true" <%= guildConfig?.leveling?.removePreviousRoles !== false ? 'selected' : '' %>>Sim, manter apenas o maior</option><option value="false" <%= guildConfig?.leveling?.removePreviousRoles === false ? 'selected' : '' %>>Não, acumular cargos</option></select></div>
+                        <div class="col-md-7"><label class="form-label" for="level-up-message">Mensagem de level up</label><input class="form-control" id="level-up-message" maxlength="1000" value="<%= guildConfig?.leveling?.levelUpMessage ?? 'Parabéns, {user}! Você alcançou o nível **{level}**.' %>"></div>
+                        <div class="col-md-5"><label class="form-label" for="level-up-channel">Canal do anúncio</label><select class="form-select" id="level-up-channel"><option value="">Canal da mensagem original</option><% channels.forEach((channel) => { %><option value="<%= channel.id %>" <%= guildConfig?.leveling?.levelUpChannelId === channel.id ? 'selected' : '' %>>#<%= channel.name %></option><% }) %></select></div>
+                        <div class="col-12"><small class="text-secondary">Placeholders disponíveis: <code>{user}</code>, <code>{username}</code>, <code>{userId}</code>, <code>{level}</code>, <code>{xp}</code> e <code>{guild}</code>.</small></div>
+                    </div></div></div>
+
+                    <div class="card mb-4"><div class="card-body"><div class="d-flex align-items-center mb-3"><div><h3 class="h5 mb-1">Cargos por nível</h3><p class="text-secondary small mb-0">O cargo configurado para o maior nível alcançado será aplicado.</p></div><button class="btn btn-outline-primary btn-sm ms-auto" type="button" id="add-level-role">Adicionar nível</button></div><div id="level-roles"></div></div></div>
+                    <div class="card mb-4"><div class="card-body"><div class="d-flex align-items-center mb-3"><div><h3 class="h5 mb-1">Boost de XP por cargo</h3><p class="text-secondary small mb-0">Os multiplicadores dos cargos elegíveis são acumulados.</p></div><button class="btn btn-outline-primary btn-sm ms-auto" type="button" id="add-role-boost">Adicionar boost</button></div><div id="role-boosts"></div></div></div>
+                    <div class="card mb-4"><div class="card-body"><div class="d-flex align-items-center mb-3"><div><h3 class="h5 mb-1">Membros com XP</h3><p class="text-secondary small mb-0" id="members-total">Carregando...</p></div><button class="btn btn-outline-danger btn-sm ms-auto" type="button" id="reset-all">Resetar todos os níveis</button></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Membro</th><th>XP</th><th>Nível atual</th><th class="text-end">Ação</th></tr></thead><tbody id="members-list"><tr><td colspan="4" class="text-secondary">Carregando...</td></tr></tbody></table></div><nav aria-label="Paginação de membros"><ul class="pagination mb-0" id="members-pagination"></ul></nav></div></div>
+                </form>
+            </main>
+        </div>
+    </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3"><div id="toast-feedback" class="toast text-bg-success border-0"><div class="d-flex"><div class="toast-body" id="toast-text"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button></div></div></div>
+    <%- include('../partials/footer', { showAll: false }) %>
+    <script>
+        const cargos = <%- JSON.stringify(roles) %>;
+        const canais = <%- JSON.stringify(channels) %>;
+        const config = <%- JSON.stringify(guildConfig?.leveling || {}) %>;
+        const escaparHtml = (valor) => String(valor).replace(/[&<>"']/g, (caractere) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[caractere]));
+        const opcoesDeCargo = (selecionado = '') => cargos.map((cargo) => `<option value="${escaparHtml(cargo.id)}" ${cargo.id === selecionado ? 'selected' : ''}>${escaparHtml(cargo.name)}</option>`).join('');
+        const linha = (tipo, dados = {}) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'row g-2 align-items-end mb-2';
+            if (tipo === 'level') wrapper.innerHTML = `<div class="col-sm-3"><label class="form-label">Nível</label><input class="form-control role-level" type="number" min="1" required value="${dados.level || 1}"></div><div class="col-sm-7"><label class="form-label">Cargo</label><select class="form-select role-id" required><option value="">Selecione um cargo</option>${opcoesDeCargo(dados.roleId)}</select></div>`;
+            else wrapper.innerHTML = `<div class="col-sm-8"><label class="form-label">Cargo</label><select class="form-select role-id" required><option value="">Selecione um cargo</option>${opcoesDeCargo(dados.roleId)}</select></div><div class="col-sm-3"><label class="form-label">Multiplicador</label><input class="form-control role-multiplier" type="number" min="1" max="10" step="0.1" required value="${dados.multiplier || 1}"></div>`;
+            wrapper.insertAdjacentHTML('beforeend', '<div class="col-sm-1"><button type="button" class="btn btn-outline-danger remove-row" aria-label="Remover">×</button></div>');
+            wrapper.querySelector('.remove-row').addEventListener('click', () => wrapper.remove());
+            return wrapper;
+        };
+        const levelRoles = document.getElementById('level-roles');
+        const roleBoosts = document.getElementById('role-boosts');
+        (config.levelRoles || []).forEach((item) => levelRoles.appendChild(linha('level', item)));
+        (config.roleBoosts || []).forEach((item) => roleBoosts.appendChild(linha('boost', item)));
+        document.getElementById('add-level-role').addEventListener('click', () => levelRoles.appendChild(linha('level')));
+        document.getElementById('add-role-boost').addEventListener('click', () => roleBoosts.appendChild(linha('boost')));
+        document.getElementById('leveling-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const read = (id) => document.getElementById(id);
+            const body = {
+                enabled: read('leveling-enabled').checked, xpMin: Number(read('xp-min').value), xpMax: Number(read('xp-max').value),
+                cooldownSeconds: Number(read('cooldown').value), xpPerLevel: Number(read('xp-level').value), announce: read('announce').value === 'true',
+                levelUpMessage: read('level-up-message').value, levelUpChannelId: read('level-up-channel').value || null,
+                removePreviousRoles: read('remove-roles').value === 'true',
+                levelRoles: [...levelRoles.children].map((row) => ({ level: Number(row.querySelector('.role-level').value), roleId: row.querySelector('.role-id').value })),
+                roleBoosts: [...roleBoosts.children].map((row) => ({ roleId: row.querySelector('.role-id').value, multiplier: Number(row.querySelector('.role-multiplier').value) })),
+            };
+            const response = await fetch(`/api/db/servers/<%= guild.id %>/leveling`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const result = await response.json().catch(() => ({}));
+            const toastElement = document.getElementById('toast-feedback');
+            document.getElementById('toast-text').textContent = response.ok ? 'Configurações salvas com sucesso!' : (result.error || 'Não foi possível salvar.');
+            toastElement.classList.toggle('text-bg-success', response.ok); toastElement.classList.toggle('text-bg-danger', !response.ok);
+            window.bootstrap?.Toast.getOrCreateInstance(toastElement, { delay: 3500 }).show();
+        });
+
+        const membersList = document.getElementById('members-list');
+        const membersPagination = document.getElementById('members-pagination');
+        const membersTotal = document.getElementById('members-total');
+        const guildId = '<%= guild.id %>';
+        const avisar = (texto, sucesso) => {
+            const toastElement = document.getElementById('toast-feedback');
+            document.getElementById('toast-text').textContent = texto;
+            toastElement.classList.toggle('text-bg-success', sucesso);
+            toastElement.classList.toggle('text-bg-danger', !sucesso);
+            window.bootstrap?.Toast.getOrCreateInstance(toastElement, { delay: 3500 }).show();
+        };
+        const carregarMembros = async (page = 1) => {
+            const response = await fetch(`/api/db/servers/${guildId}/leveling/members?page=${page}`);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Não foi possível carregar os membros.');
+            membersTotal.textContent = `${data.total} membro(s) com XP cadastrado`;
+            membersList.innerHTML = data.members.length ? data.members.map((member) => `<tr><td>${escaparHtml(member.username)}<br><small class="text-secondary">${escaparHtml(member.userId)}</small></td><td>${member.xp}</td><td>${member.level}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger reset-member" data-user-id="${escaparHtml(member.userId)}">Resetar</button></td></tr>`).join('') : '<tr><td colspan="4" class="text-secondary">Nenhum membro com XP cadastrado.</td></tr>';
+            membersList.querySelectorAll('.reset-member').forEach((button) => button.addEventListener('click', async () => {
+                if (!window.confirm('Resetar todo o XP deste membro? Esta ação não pode ser desfeita.')) return;
+                const resetResponse = await fetch(`/api/db/servers/${guildId}/leveling/members/${button.dataset.userId}/reset`, { method: 'POST' });
+                const result = await resetResponse.json().catch(() => ({}));
+                avisar(result.message || result.error, resetResponse.ok);
+                if (resetResponse.ok) await carregarMembros(data.page);
+            }));
+            membersPagination.innerHTML = Array.from({ length: data.totalPages }, (_, index) => `<li class="page-item ${index + 1 === data.page ? 'active' : ''}"><button class="page-link" type="button" data-page="${index + 1}">${index + 1}</button></li>`).join('');
+            membersPagination.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => carregarMembros(Number(button.dataset.page)).catch((error) => avisar(error.message, false))));
+        };
+        document.getElementById('reset-all').addEventListener('click', async () => {
+            if (!window.confirm('Resetar o XP de todos os membros deste servidor? Esta ação não pode ser desfeita.')) return;
+            const response = await fetch(`/api/db/servers/${guildId}/leveling/reset`, { method: 'POST' });
+            const result = await response.json().catch(() => ({}));
+            avisar(result.message || result.error, response.ok);
+            if (response.ok) await carregarMembros(1);
+        });
+        carregarMembros().catch((error) => avisar(error.message, false));
+    </script>
+</body>
+</html>

@@ -198,6 +198,30 @@ export default (client) => {
         }
     });
 
+    // Dashboard - níveis
+    router.get('/:guildId/leveling', ensureAuthenticated, async (req, res) => {
+        try {
+            const { guild: userGuild, botGuild, guildConfig: guildData } =
+                await verificarAcessoGiveaway(client, req, req.params.guildId);
+            const roles = [...(botGuild.roles?.cache?.values() ?? [])]
+                .filter((role) => role.id !== req.params.guildId && role.name)
+                .map((role) => ({ id: role.id, name: role.name }));
+            const channels = [...(botGuild.channels?.cache?.values() ?? [])]
+                .filter((channel) => channel.name && (typeof channel.isTextBased === 'function' ? channel.isTextBased() : typeof channel.send === 'function'))
+                .map((channel) => ({ id: channel.id, name: channel.name }));
+
+            return res.render('dashboard/leveling', {
+                guild: userGuild,
+                guildConfig: guildData,
+                roles,
+                channels,
+            });
+        } catch (error) {
+            console.error(DASHBOARD_PREFIX, 'Erro ao obter configuração de níveis:', error);
+            return res.status(error.statusCode || 500).render('error', { error, user: req.user });
+        }
+    });
+
     // Dashboard - giveaways (criar/editar/encerrar/cancelar/sortear usam a API em /api/db/servers/:id/giveaways)
     router.get('/:guildId/giveaways', ensureAuthenticated, async (req, res) => {
         try {
