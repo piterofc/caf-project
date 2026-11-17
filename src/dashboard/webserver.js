@@ -58,6 +58,10 @@ export class WebServer {
     setServer() {
         const app = express();
 
+        // Confia no primeiro proxy reverso (Cloudflare, Nginx, Traefik, etc.)
+        // para que req.secure funcione via X-Forwarded-Proto e o cookie de sessão seja enviado.
+        app.set('trust proxy', 1);
+
         // Middlewares
         app.use(helmet({
             contentSecurityPolicy: false
@@ -96,9 +100,6 @@ export class WebServer {
         });
         app.use('/api', limiter);
 
-        // Mensagens flash
-        app.use(flash());
-
         // Session
         app.use(session({
             name: 'caf.session',
@@ -113,11 +114,14 @@ export class WebServer {
             cookie: {
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
+                secure: 'auto',
                 sameSite: 'lax'
             }
 
         }));
+
+        // Mensagens flash
+        app.use(flash());
 
         // Passport
         app.use(passport.initialize());

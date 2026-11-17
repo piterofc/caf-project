@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./src/db:/app/src/db
+    ports:
+      - "8080:8080"
     init: true
     env_file:
       - /root/caf-fluxer-bot/.env

@@ -54,7 +54,7 @@ const inviteConfig = {
 }
 
 // Configurações do dashboard
-const baseUrl = 'http://localhost:8080'; // Altere para o seu domínio
+const baseUrl = (process.env.DASHBOARD_BASE_URL || 'http://localhost:8080').replace(/\/+$/, ''); // Altere para o seu domínio ou defina DASHBOARD_BASE_URL no .env
 const dashboardConfig = {
     baseUrl,
     port: 8080, // Porta do servidor web
