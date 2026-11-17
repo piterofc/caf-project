@@ -1,0 +1,42 @@
+<%- include('partials/head', {
+    title: '',
+    fullTitle: 'CAF | 404 - Página não encontrada',
+    description: 'A página que você procura não existe.'
+}) %>
+<body>
+    <%- include('partials/loading') %>
+    <%- include('partials/header') %>
+
+    <style>
+        @keyframes flutuar {
+            0%, 100% { transform: translateY(0) rotate(7deg); }
+            50% { transform: translateY(-5px) rotate(3deg); }
+        }
+        .aureola-anim {
+            animation: flutuar 5s ease-in-out infinite alternate;
+            transform-origin: center;
+            will-change: transform;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .aureola-anim { animation: none; }
+        }
+    </style>
+
+    <main class="container flex-grow-1 d-flex align-items-center justify-content-center py-5">
+        <div class="card shadow-sm border-0 rounded-4 text-center w-100 user-select-none" style="max-width: 600px;">
+            <div class="card-body p-4 p-md-5">
+                <img src="/assets/img/aureola.webp" class="aureola-anim d-block mx-auto position-relative" style="width: 120px; height: 120px; margin-bottom: -70px; z-index: 1;" alt="Auréola" draggable="false">
+
+                <div class="text-primary fw-bold lh-1" style="font-family: 'Baloo2-ExtraBold', Arial, sans-serif; font-size: clamp(6rem, 25vw, 10rem);">404</div>
+                <h1 class="h3 mt-3">Página não encontrada</h1>
+                <p class="text-secondary mb-4">Desculpe, a página que você está procurando não existe.</p>
+
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="/" class="btn btn-primary rounded-pill px-4">Voltar para o início</a>
+                    <% /*<a href="https://web.fluxer.app/users/1474392489652519770" target="_blank" rel="noopener" class="btn btn-outline-primary rounded-pill px-4">Falar com o suporte</a>*/ %>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

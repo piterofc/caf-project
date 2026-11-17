@@ -4,11 +4,20 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
+# Dependências necessárias para compilar módulos nativos
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        make \
+        g++ \
+        build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY src ./src
 
-USER node
+USER root
 
 CMD ["npm", "start"]

@@ -1,0 +1,73 @@
+<%
+const usuarioAtual = (typeof user !== 'undefined') ? user : null;
+const nomeUsuario = usuarioAtual ? (usuarioAtual.global_name || usuarioAtual.username || 'Usuário') : '';
+let avatarUrl = '';
+if (usuarioAtual) {
+    avatarUrl = usuarioAtual.avatarUrl || usuarioAtual.avatar_url
+        || (usuarioAtual.avatar ? `https://fluxerusercontent.com/avatars/${usuarioAtual.id}/${usuarioAtual.avatar}.webp` : '');
+}
+%>
+<header>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-caf-dark sticky-top shadow">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                <img src="/assets/img/logo.webp" alt="" width="32" height="32" class="rounded-circle">
+                Central dos Anjos do Fluxer
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="menuPrincipal">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item"><a class="nav-link" href="/">Início</a></li>
+                    <li class="nav-item"><a class="nav-link" href="https://web.fluxer.app/users/1474392489652519770" target="_blank" rel="noopener">Suporte</a></li>
+                    <% if (usuarioAtual) { %>
+                        <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                        <li class="nav-item d-flex align-items-center gap-2 my-2 my-lg-0">
+                            <% if (avatarUrl) { %>
+                                <img src="<%= avatarUrl %>" alt="Avatar de <%= nomeUsuario %>" title="<%= nomeUsuario %>" class="rounded-circle border border-2 border-light-subtle" width="34" height="34" referrerpolicy="no-referrer"
+                                     onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
+                            <% } %>
+                            <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center fw-bold <%= avatarUrl ? 'd-none' : '' %>" style="width: 34px; height: 34px;" title="<%= nomeUsuario %>"><%= nomeUsuario.charAt(0).toUpperCase() %></span>
+                            <a href="/auth/logout" class="btn btn-sm btn-outline-light rounded-pill px-3">Sair</a>
+                        </li>
+                    <% } else { %>
+                        <li class="nav-item"><a href="/auth/fluxer" class="btn btn-sm btn-light rounded-pill px-3">Entrar</a></li>
+                    <% } %>
+                    <li class="nav-item my-2 my-lg-0">
+                        <button type="button" id="botao-tema" class="btn btn-sm btn-outline-light rounded-pill px-3 d-inline-flex align-items-center gap-2" aria-label="Alternar tema">
+                            <span id="tema-icone" aria-hidden="true">🌙</span>
+                            <span id="tema-texto">Escuro</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<script>
+    // Alternar tema claro/escuro (o botão mostra o tema para o qual vai mudar)
+    (function () {
+        const botao = document.getElementById('botao-tema');
+        const icone = document.getElementById('tema-icone');
+        const texto = document.getElementById('tema-texto');
+        const html = document.documentElement;
+
+        function atualizarBotao() {
+            const escuro = html.getAttribute('data-bs-theme') === 'dark';
+            icone.textContent = escuro ? '☀️' : '🌙';
+            texto.textContent = escuro ? 'Claro' : 'Escuro';
+            botao.setAttribute('aria-label', escuro ? 'Mudar para o tema claro' : 'Mudar para o tema escuro');
+        }
+
+        botao.addEventListener('click', function () {
+            const novo = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-bs-theme', novo);
+            try { localStorage.setItem('caf-tema', novo); } catch (e) {}
+            atualizarBotao();
+        });
+
+        atualizarBotao();
+    })();
+</script>

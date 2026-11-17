@@ -1,0 +1,99 @@
+<!-- Loader superior -->
+<header id="nav-loader" data-loader
+        class="position-fixed top-0 start-0 w-100"
+        style="z-index: 9091;">
+    <nav class="navbar navbar-dark bg-caf-dark shadow">
+        <div class="container d-flex justify-content-center">
+            <div class="navbar-text text-white d-flex align-items-center gap-2 p-0">
+                <img src="/assets/img/letras_aureola.webp"
+                     height="42"
+                     alt=""
+                     draggable="false">
+            </div>
+        </div>
+    </nav>
+</header>
+
+<!-- Loader principal -->
+<div id="page-loader" data-loader
+     class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-body"
+     style="z-index: 9090;"
+     role="status"
+     aria-live="polite">
+
+    <div class="text-center">
+        <img src="/assets/img/aureola.webp"
+             class="aureola-loader"
+             width="90"
+             height="90"
+             alt=""
+             draggable="false">
+
+        <div class="d-flex align-items-center justify-content-center gap-2 mt-2">
+            <div class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></div>
+            <span class="h5 text-secondary mb-0">Carregando...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Fallback sem JavaScript: sem JS o loader nunca sairia da tela -->
+<noscript>
+    <style>
+        [data-loader] { display: none !important; }
+    </style>
+</noscript>
+
+<style>
+    /* Os loaders já nascem visíveis (cobrem a página desde o primeiro frame) e só somem no fim */
+    [data-loader] {
+        opacity: 1;
+        transition: opacity .35s ease;
+    }
+    [data-loader].is-hiding {
+        opacity: 0;
+    }
+
+    @keyframes flutuar-loader {
+        from { transform: translateY(0) rotate(7deg); }
+        to   { transform: translateY(-8px) rotate(3deg); }
+    }
+    .aureola-loader {
+        animation: flutuar-loader 1.5s ease-in-out infinite alternate;
+        transform-origin: center;
+        will-change: transform;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        [data-loader] { transition: none; }
+        .aureola-loader { animation: none; }
+    }
+</style>
+
+<script>
+(function () {
+    const camadas = Array.from(document.querySelectorAll('[data-loader]'));
+    if (!camadas.length) return;
+
+    const DURACAO_FADE = 350; // ms: precisa ser igual à transição do CSS
+    let finalizado = false;
+
+    function finalizar() {
+        if (finalizado) return;
+        finalizado = true;
+
+        // Fade-out e depois remove do DOM
+        camadas.forEach(c => {
+            c.classList.add('is-hiding');
+            c.style.pointerEvents = 'none';
+        });
+        setTimeout(() => camadas.forEach(c => c.remove()), DURACAO_FADE + 50);
+    }
+
+    // Espera tudo carregar (HTML, fontes, imagens e demais recursos)
+    if (document.readyState === 'complete') {
+        finalizar();
+    } else {
+        window.addEventListener('load', finalizar, { once: true });
+    }
+})();
+</script>

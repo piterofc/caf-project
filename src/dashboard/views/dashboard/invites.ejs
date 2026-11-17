@@ -1,0 +1,126 @@
+<%- include('../partials/head', { title: `${guild.name} - Convites`, description: `Configurar o sistema de convites do servidor ${guild.name} no dashboard da Angel` }) %>
+<body>
+    <%- include('../partials/loading') %>
+    <%- include('../partials/header') %>
+
+    <!-- Cabeçalho do servidor (compacto) -->
+    <section class="bg-caf-hero text-white py-2">
+        <div class="container">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
+                <% if (guild.icon) { %>
+                    <img src="https://fluxerusercontent.com/icons/<%= guild.id %>/<%= guild.icon %>.webp" alt="" class="rounded-circle border border-2 border-white shadow-sm" width="44" height="44">
+                <% } else { %>
+                    <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center fs-5 fw-bold border border-2 border-white shadow-sm" style="width: 44px; height: 44px;">
+                        <%= guild.name.charAt(0) %>
+                    </div>
+                <% } %>
+                <div class="me-auto text-truncate">
+                    <h1 class="h5 mb-0 text-truncate"><%= guild.name %></h1>
+                    <small class="text-white-50">Convites</small>
+                </div>
+                <% if (guildConfig?.premium?.enabled) { %>
+                    <span class="badge rounded-pill text-bg-warning">⭐ Premium - Nível <%= guildConfig?.premium?.tier %></span>
+                <% } %>
+                <a href="/dashboard" class="btn btn-sm btn-outline-light rounded-pill">Trocar servidor</a>
+            </div>
+        </div>
+    </section>
+
+    <div class="container-fluid flex-grow-1 py-4 px-4">
+        <div class="row g-5">
+
+            <!-- Menu lateral -->
+            <aside class="col-lg-3">
+                <%- include('../partials/guild-sidebar', { guild, guildConfig, active: 'invites' }) %>
+            </aside>
+
+            <!-- Conteúdo principal -->
+            <main class="col-lg-9">
+                <h2 class="h4 mb-3">Convites</h2>
+
+                <!--
+                    ESQUELETO: a página de configuração ainda não foi construída.
+
+                    Já chegam do servidor (ver o script no fim do arquivo):
+                      - inviteSettings     valores atuais (padrões já aplicados)
+                      - inviteDefinitions  definição de cada opção: tipo (texto/canal/opcao/booleano/numero), grupo
+                                           (entradas/saidas/ranking/fakes), nome, descrição, padrão, opções/mínimo/máximo
+                      - channels           canais de texto do servidor ({ id, name })
+                      - templateVariables  variáveis aceitas em joinMessage / leaveMessage
+
+                    O salvamento usa a API (ver `enviar` abaixo):
+                      POST /api/db/servers/:id/invites/config         { opção: valor, ... }  (null ou "" limpa um canal)
+                      POST /api/db/servers/:id/invites/config/reset   { keys: ['joinMessage', ...] }
+                      POST /api/db/servers/:id/invites/preview        { template }  ->  { type: 'text'|'embed', content|embed }
+                      GET  /api/db/servers/:id/invites/config         -> { settings, defaults, definitions, variables }
+                -->
+                <div class="alert alert-info" id="invites-em-construcao">
+                    A página de configuração de convites ainda está em construção.
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Avisos -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast-feedback" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-text"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+            </div>
+        </div>
+    </div>
+
+    <%- include('../partials/footer', { showAll: false }) %>
+
+    <script>
+        const baseUrl = `/api/db/servers/<%= guild.id %>/invites`;
+        // Dados da página (o JSON é escapado para evitar quebrar o HTML)
+        const INVITES = {
+            settings: <%- JSON.stringify(inviteSettings).replace(/</g, '\\u003c') %>,
+            definitions: <%- JSON.stringify(inviteDefinitions).replace(/</g, '\\u003c') %>,
+            channels: <%- JSON.stringify(channels).replace(/</g, '\\u003c') %>,
+            variables: <%- JSON.stringify(templateVariables).replace(/</g, '\\u003c') %>
+        };
+
+        const toastEl = document.getElementById('toast-feedback');
+        const toastText = document.getElementById('toast-text');
+        // Se o Bootstrap JS não carregar, o aviso ainda aparece (sem depender dele)
+        const toast = window.bootstrap ? bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 }) : null;
+
+        function avisar(texto, ok) {
+            toastText.textContent = texto;
+            toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+            toastEl.classList.add(ok ? 'text-bg-success' : 'text-bg-danger');
+            if (toast) {
+                toast.show();
+            } else {
+                toastEl.classList.add('show');
+                setTimeout(() => toastEl.classList.remove('show'), 3500);
+            }
+        }
+
+        // Envia para a API e avisa o resultado. Retorna a resposta (ou null se falhar).
+        // Exemplo: enviar({ url: `${baseUrl}/config`, body: { joinMessageChannel: '123...' }, okText: 'Salvo!', errorText: 'Erro ao salvar.' })
+        async function enviar({ url, body, okText, errorText }) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body ?? {})
+                });
+                const result = await response.json().catch(() => ({}));
+
+                if (response.ok && result.success) {
+                    avisar(result.message || okText, true);
+                    return result;
+                }
+                avisar(result.error || result.message || errorText, false);
+            } catch (error) {
+                avisar(errorText, false);
+            }
+            return null;
+        }
+    </script>
+</body>
+</html>

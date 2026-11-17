@@ -2,7 +2,7 @@
 {
   "version": 3,
   "repo": {
-    "url": "https://github.com/piterofc/caf-fluxer-bot.git",
+    "url": "https://github.com/piterofc/caf-project.git",
     "branch": "production",
     "token": "${GITHUB_TOKEN:-}"
   },
