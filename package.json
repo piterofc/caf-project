@@ -1,8 +1,8 @@
 {
-  "name": "caf-fluxer-bot",
+  "name": "caf-project",
   "version": "1.0.0",
   "private": true,
-  "description": "Bot Fluxer do CAF",
+  "description": "Projeto Fluxer da CAF",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
