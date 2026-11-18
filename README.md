@@ -4,6 +4,6 @@ Projeto oficial da Central dos Anjos do Fluxer (CAF) no Fluxer, contendo o websi
 A CAF é uma network de iniciativa da parceria **Família BR x Gateway**.<br>
 A comunidade pública de atualizações da CAF é a **Família BR**: https://fluxer.gg/TxsYYhGJ
 
-Website da CAF: https://caf.is-a.bot
+Website da CAF: https://caf.familiabr.eu
 
 Qualquer dúvida, contato oficial: `piterofc#1234` no Fluxer.
